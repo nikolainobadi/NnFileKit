@@ -7,9 +7,12 @@
 
 import Foundation
 
+/// A `FileManager`-backed ``FileSystem`` implementation that performs real file system operations.
 public struct DefaultFileSystem: FileSystem, Sendable {
     private nonisolated(unsafe) let fileManager: FileManager
 
+    /// Creates a file system backed by the given file manager.
+    /// - Parameter fileManager: The `FileManager` to use. Defaults to `.default`.
     public init(fileManager: FileManager = .default) {
         self.fileManager = fileManager
     }
@@ -37,7 +40,7 @@ extension DefaultFileSystem {
     }
 
     public func desktopDirectory() throws -> any Directory {
-        let desktopPath = fileManager.homeDirectoryForCurrentUser.appending(path: "Desktop").path()
+        let desktopPath = (fileManager.homeDirectoryForCurrentUser.path as NSString).appendingPathComponent("Desktop")
         
         return try directory(at: desktopPath)
     }

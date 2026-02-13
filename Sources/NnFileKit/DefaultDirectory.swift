@@ -7,9 +7,14 @@
 
 import Foundation
 
+/// A `FileManager`-backed ``Directory`` implementation that performs real file system operations.
+///
+/// Paths are normalized to always include a trailing slash.
 public struct DefaultDirectory: Directory, Sendable {
     public let path: String
 
+    /// Creates a directory reference for the given path.
+    /// - Parameter path: The absolute path. A trailing slash is appended if absent.
     public init(path: String) {
         self.path = path.hasSuffix("/") ? path : path + "/"
     }
@@ -18,10 +23,12 @@ public struct DefaultDirectory: Directory, Sendable {
 
 // MARK: - Static Helpers
 public extension DefaultDirectory {
+    /// A directory pointing to the system's temporary directory.
     static var temporary: DefaultDirectory {
         DefaultDirectory(path: NSTemporaryDirectory())
     }
 
+    /// A directory pointing to the current user's home directory.
     static var home: DefaultDirectory {
         DefaultDirectory(path: NSHomeDirectory())
     }

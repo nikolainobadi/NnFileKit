@@ -8,6 +8,7 @@
 import NnFileKit
 import Foundation
 
+/// A test double for ``FileSystem`` that records calls and returns preconfigured values.
 public final class MockFileSystem: FileSystem {
     private let desktop: any Directory
     private let directoryToLoad: (any Directory)?

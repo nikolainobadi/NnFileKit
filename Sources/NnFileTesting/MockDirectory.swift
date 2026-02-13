@@ -8,6 +8,7 @@
 import NnFileKit
 import Foundation
 
+/// A test double for ``Directory`` that records calls and returns preconfigured values.
 public final class MockDirectory: Directory {
     private let shouldThrowOnSubdirectory: Bool
     private let autoCreateSubdirectories: Bool
