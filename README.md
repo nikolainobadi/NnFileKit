@@ -51,7 +51,7 @@ For test targets, add the testing library:
 .testTarget(
     name: "YourTests",
     dependencies: [
-        .product(name: "NnFileTesing", package: "NnFileKit")
+        .product(name: "NnFileTesting", package: "NnFileKit")
     ]
 )
 ```
