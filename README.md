@@ -6,7 +6,7 @@
 
 ## Overview
 
-A lightweight Swift package providing protocol-based abstractions for file system operations. NnFileKit decouples your code from `FileManager` through the `FileSystem` and `Directory` protocols, making file operations easy to test with the included mock implementations.
+A lightweight Swift package providing protocol-based abstractions for file system operations and JSON configuration management. NnFileKit decouples your code from `FileManager` through the `FileSystem` and `Directory` protocols, making file operations easy to test with the included mock implementations. The `NnConfigKit` module builds on these protocols to provide generic, testable JSON configuration file management.
 
 ## Features
 
@@ -16,6 +16,8 @@ A lightweight Swift package providing protocol-based abstractions for file syste
 - **Recursive file search** — find files with optional extension filtering across nested directories
 - **Desktop and home directory access** — convenient accessors for common locations
 - **Trash support** — move items to trash instead of permanent deletion
+- **Generic config management** — `NnConfigManager<Config: Codable>` for type-safe JSON configuration files
+- **Nested config files** — create, append, remove, and delete files within config directory hierarchies
 - **Sendable conformance** — safe for use in Swift 6 strict concurrency
 - **Shared test doubles** — `MockFileSystem` and `MockDirectory` ship as a separate `NnFileTesting` library
 
@@ -34,13 +36,14 @@ Add the package to your `Package.swift`:
 .package(url: "https://github.com/nikolainobadi/NnFileKit.git", from: "0.5.0")
 ```
 
-Then include it in your target:
+Then include the libraries you need in your target:
 
 ```swift
 .target(
     name: "YourTarget",
     dependencies: [
         .product(name: "NnFileKit", package: "NnFileKit"),
+        .product(name: "NnConfigKit", package: "NnFileKit"),
     ]
 )
 ```
@@ -96,6 +99,30 @@ let existing = try dir.createSubfolderIfNeeded(named: "cache")
 let swiftFiles = try dir.findFiles(withExtension: "swift", recursive: true)
 ```
 
+### Managing JSON Configurations
+
+```swift
+import NnConfigKit
+
+struct AppConfig: Codable {
+    var theme: String
+    var maxRetries: Int
+}
+
+// Create a manager (configs stored at ~/.config/NnConfigList/MyApp/)
+let manager = NnConfigManager<AppConfig>(projectName: "MyApp")
+
+// Save and load
+try manager.saveConfig(AppConfig(theme: "dark", maxRetries: 3))
+let config = try manager.loadConfig()
+
+// Nested config files within the config directory
+try manager.saveNestedConfigFile(contents: "key=value", nestedFilePath: "settings/overrides.txt")
+try manager.appendTextToNestedConfigFileIfNeeded(text: "new_key=new_value", nestedFilePath: "settings/overrides.txt")
+try manager.removeTextFromNestedConfigFile(text: "key=value", nestedFilePath: "settings/overrides.txt")
+try manager.deletedNestedConfigFile(nestedFilePath: "settings/overrides.txt")
+```
+
 ### Testing with Mocks
 
 ```swift
@@ -110,15 +137,22 @@ let mockFS = MockFileSystem(
 )
 
 // Use mockFS anywhere a FileSystem is expected
+// NnConfigManager accepts a FileSystem for testability
+let manager = NnConfigManager<MyConfig>(
+    projectName: "TestProject",
+    configFolderPath: "/Users/Test/configs",
+    fileSystem: mockFS
+)
 ```
 
 ## Architecture
 
-NnFileKit is organized into two library products:
+NnFileKit is organized into three library products:
 
 | Module | Purpose |
 |--------|---------|
 | **NnFileKit** | Core protocols (`FileSystem`, `Directory`) and their `FileManager`-backed implementations (`DefaultFileSystem`, `DefaultDirectory`) |
+| **NnConfigKit** | Generic JSON configuration management (`NnConfigManager<Config>`) built on `NnFileKit` protocols |
 | **NnFileTesting** | Shared test doubles (`MockFileSystem`, `MockDirectory`) for consumer test targets |
 
 ## License
