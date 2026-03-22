@@ -11,6 +11,10 @@ let package = Package(
             targets: ["NnFileKit"]
         ),
         .library(
+            name: "NnConfigKit",
+            targets: ["NnConfigKit"]
+        ),
+        .library(
             name: "NnFileTesting",
             targets: ["NnFileTesting"]
         ),
@@ -20,6 +24,10 @@ let package = Package(
             name: "NnFileKit"
         ),
         .target(
+            name: "NnConfigKit",
+            dependencies: ["NnFileKit"]
+        ),
+        .target(
             name: "NnFileTesting",
             dependencies: ["NnFileKit"]
         ),
@@ -27,6 +35,13 @@ let package = Package(
             name: "NnFileKitTests",
             dependencies: [
                 "NnFileKit"
+            ]
+        ),
+        .testTarget(
+            name: "NnConfigKitTests",
+            dependencies: [
+                "NnConfigKit",
+                "NnFileTesting",
             ]
         ),
     ]
