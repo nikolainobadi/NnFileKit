@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Add `throwError` flag to `MockFileSystem` and `MockDirectory` for exercising error paths
+- Add `fileContentsToRead` to `MockFileSystem` for stubbing `readFile(at:)` by path
+- Add `writtenFilePath` and `writtenFileContents` to `MockFileSystem` for verifying writes
+
+### Changed
+- `MockDirectory.createSubdirectory(named:)` now registers the new subdirectory in `subdirectories`
+- `MockDirectory(autoCreateSubdirectories:)` now defaults to `false`, so `subdirectory(named:)` throws for unknown names instead of synthesizing one
+
+### Fixed
+- Add missing `NnFileTesting` dependency to the `NnFileKitTests` target, which prevented the test suite from compiling
+- `MockFileSystem.readFile(at:)` now throws `FileSystemError.fileNotFound` instead of an opaque `NSError`
+
 ## [0.6.0] - 2026-03-22
 
 ### Added
