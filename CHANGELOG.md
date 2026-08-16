@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-16
+
 ### Added
 - Add `throwError` flag to `MockFileSystem` and `MockDirectory` for exercising error paths
 - Add `fileContentsToRead` to `MockFileSystem` for stubbing `readFile(at:)` by path
@@ -14,7 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - `MockDirectory.createSubdirectory(named:)` now registers the new subdirectory in `subdirectories`
-- `MockDirectory(autoCreateSubdirectories:)` now defaults to `false`, so `subdirectory(named:)` throws for unknown names instead of synthesizing one
+- **Breaking:** `MockDirectory(autoCreateSubdirectories:)` now defaults to `false`, so `subdirectory(named:)` throws for unknown names instead of synthesizing one
+- The `NnFileKit` Claude Code skill now ships from this repo (`Skills/NnFileKit/`) via the `nn-swift-skills` marketplace instead of `nelix-swift-tools`. Existing installs must be reinstalled from the new marketplace
 
 ### Fixed
 - Add missing `NnFileTesting` dependency to the `NnFileKitTests` target, which prevented the test suite from compiling
@@ -29,5 +32,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Fix typo in README dependency name (`NnFileTesing` → `NnFileTesting`)
 
-[Unreleased]: https://github.com/nikolainobadi/NnFileKit/compare/0.6.0...HEAD
+[Unreleased]: https://github.com/nikolainobadi/NnFileKit/compare/0.7.0...HEAD
+[0.7.0]: https://github.com/nikolainobadi/NnFileKit/compare/0.6.0...0.7.0
 [0.6.0]: https://github.com/nikolainobadi/NnFileKit/compare/0.5.0...0.6.0

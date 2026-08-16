@@ -42,6 +42,23 @@ Key invariants to preserve when touching either implementation pair:
 - `@Test` descriptions are full sentences describing behavior ("Recursive search includes files in subdirectories"), not restatements of the function name.
 - `DefaultDirectory`/`DefaultFileSystem` tests hit the real file system inside `NSTemporaryDirectory()/UUID().uuidString`. `NnConfigManagerTests` writes to the *real* `~/.config/NnConfigList` and wipes those folders in `setUpWithError`/`tearDownWithError` — be careful when editing that cleanup.
 
+## The NnFileKit skill
+
+`Skills/NnFileKit/` holds the Claude Code skill documenting this package's public API. It lives here, not in NobadiScripts, so that an API change and its documentation land in the same PR — a cross-repo convention had no enforcement point and silently failed.
+
+- **Any PR changing `public`/`open`/`package` declarations under `Sources/` must also touch `Skills/`.** The `skill-docs` workflow enforces this. If a PR genuinely changes no documented behavior, apply the `skip-skill-check` label to waive it.
+- `Skills/NnFileKit/.claude-plugin/plugin.json` **deliberately has no `version` field.** Git-based marketplace sources key their cache by commit sha, so a hand-typed version is a number nothing verifies — exactly the staleness this arrangement exists to remove. Do not reintroduce it.
+- SwiftPM ignores `Skills/`; it is not a target and never will be.
+
+### Releasing
+
+The marketplace entry in `nikolainobadi/nn-swift-skills` pins `ref` to a **release tag**, so:
+
+- **Skill edits ship on release, not on merge.** Merging a doc correction changes nothing for consumers until the next tag. This surprises people — it is the deliberate trade for docs that always match a shipped version.
+- The `skill-ref-bump` workflow fires on tag push and opens a PR against the marketplace to move `ref` to the new tag. If that automation is ever removed, the bump becomes a manual cross-repo step. **An unbumped `ref` serves the previous release's docs forever — nothing errors and nothing warns.**
+
+`skill-ref-bump` needs a `MARKETPLACE_TOKEN` repo secret: a fine-grained PAT with `contents:write` and `pull-requests:write` on `nikolainobadi/nn-swift-skills` and nothing else. It is **shared** with the other package repos publishing to that marketplace (`SwiftPickerKit`, `NnArgumentParser`), so rotation is fan-out — expiry breaks the bump in every repo holding it, and each needs the secret set again. A failed bump run complaining about the token means *rotate the shared token*, not *this repo's workflow is broken*. The token is stored locally under `~/Coding/Service-or-Auth-Keys/`; GitHub secrets are write-only, so it cannot be recovered from another repo.
+
 ## Release notes
 
 `CHANGELOG.md` follows Keep a Changelog + SemVer, with compare links maintained at the bottom. Add entries under `## [Unreleased]` for user-visible changes.
