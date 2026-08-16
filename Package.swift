@@ -34,7 +34,8 @@ let package = Package(
         .testTarget(
             name: "NnFileKitTests",
             dependencies: [
-                "NnFileKit"
+                "NnFileKit",
+                "NnFileTesting",
             ]
         ),
         .testTarget(

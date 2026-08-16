@@ -36,8 +36,8 @@ struct MockDirectoryTests {
     func startingValues() {
         let sut = makeSUT()
 
-        #expect(sut.didDelete == false)
-        #expect(sut.movedToParent == nil)
+        #expect(sut.deleteCallCount == 0)
+        #expect(sut.movedToParents.isEmpty)
     }
 }
 
@@ -169,13 +169,13 @@ extension MockDirectoryTests {
 
 
 extension MockDirectoryTests {
-    @Test("Delete sets didDelete to true")
+    @Test("Delete increments the recorded call count")
     func deleteRecordsCall() throws {
         let sut = makeSUT()
 
         try sut.delete()
 
-        #expect(sut.didDelete)
+        #expect(sut.deleteCallCount == 1)
     }
 
     @Test("Move records parent path")
@@ -185,7 +185,7 @@ extension MockDirectoryTests {
 
         try sut.move(to: parent)
 
-        #expect(sut.movedToParent == "/new/parent")
+        #expect(sut.movedToParents == ["/new/parent"])
     }
 }
 

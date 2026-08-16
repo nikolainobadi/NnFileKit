@@ -20,6 +20,7 @@ A lightweight Swift package providing protocol-based abstractions for file syste
 - **Nested config files** — create, append, remove, and delete files within config directory hierarchies
 - **Sendable conformance** — safe for use in Swift 6 strict concurrency
 - **Shared test doubles** — `MockFileSystem` and `MockDirectory` ship as a separate `NnFileTesting` library
+- **Error injection** — a single `throwError` flag makes every throwing mock operation fail, for exercising error paths
 
 ## Requirements
 
@@ -33,7 +34,7 @@ A lightweight Swift package providing protocol-based abstractions for file syste
 Add the package to your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/nikolainobadi/NnFileKit.git", from: "0.5.0")
+.package(url: "https://github.com/nikolainobadi/NnFileKit.git", from: "0.7.0")
 ```
 
 Then include the libraries you need in your target:
@@ -143,6 +144,28 @@ let manager = NnConfigManager<MyConfig>(
     configFolderPath: "/Users/Test/configs",
     fileSystem: mockFS
 )
+```
+
+Writes are recorded without any directory wiring, and reads can be stubbed by absolute path:
+
+```swift
+let fs = MockFileSystem(fileContentsToRead: ["/etc/app.conf": "debug=1"])
+
+#expect(try fs.readFile(at: "/etc/app.conf") == "debug=1")
+
+try fs.writeFile(at: "/out/report.txt", contents: "done")
+#expect(fs.writtenFilePath == "/out/report.txt")
+#expect(fs.writtenFileContents == "done")
+```
+
+Pass `throwError: true` to either mock to make every throwing operation fail:
+
+```swift
+let failing = MockDirectory(path: "/broken", throwError: true)
+
+#expect(throws: (any Error).self) {
+    try failing.createFile(named: "x.txt", contents: "")
+}
 ```
 
 ## Architecture

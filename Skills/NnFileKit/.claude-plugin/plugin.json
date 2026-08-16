@@ -1,0 +1,5 @@
+{
+  "name": "NnFileKit",
+  "description": "NnFileKit Swift API reference for file system access from Swift — protocol-based FileSystem/Directory design with a FileManager-backed DefaultFileSystem and MockFileSystem/MockDirectory testing utilities.",
+  "author": { "name": "Nikolai Nobadi" }
+}
