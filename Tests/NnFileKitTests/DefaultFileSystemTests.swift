@@ -10,8 +10,8 @@ import Foundation
 @testable import NnFileKit
 
 struct DefaultFileSystemTests {
-    @Test("Directory is returned for valid existing path")
-    func directoryAtValidPath() throws {
+    @Test
+    func `Directory is returned for valid existing path`() throws {
         let sut = makeSUT()
         let tempPath = NSTemporaryDirectory()
 
@@ -20,8 +20,8 @@ struct DefaultFileSystemTests {
         #expect(dir.path == tempPath)
     }
 
-    @Test("Error is thrown for nonexistent directory path")
-    func directoryAtInvalidPath() {
+    @Test
+    func `Error is thrown for nonexistent directory path`() {
         let sut = makeSUT()
 
         #expect(throws: FileSystemError.self) {
@@ -29,8 +29,8 @@ struct DefaultFileSystemTests {
         }
     }
 
-    @Test("File contents are written and readable")
-    func writeAndReadFile() throws {
+    @Test
+    func `File contents are written and readable`() throws {
         let sut = makeSUT()
         let path = NSTemporaryDirectory().appendingPathComponent(UUID().uuidString + ".txt")
 
@@ -40,24 +40,25 @@ struct DefaultFileSystemTests {
         #expect(contents == "test content")
     }
 
-    @Test("Home directory matches system home path")
-    func homeDirectory() {
+    @Test
+    func `Home directory matches system home path`() {
         let sut = makeSUT()
 
         #expect(sut.homeDirectory.path == NSHomeDirectory() + "/")
     }
 
-    @Test("Current directory matches system working directory path")
-    func currentDirectory() {
+    @Test
+    func `Current directory matches system working directory path`() {
         let sut = makeSUT()
 
         #expect(sut.currentDirectory.path == FileManager.default.currentDirectoryPath + "/")
     }
 }
 
+// MARK: - Directory Resolution
 extension DefaultFileSystemTests {
-    @Test("Nil path returns current directory")
-    func nilPathReturnsCurrent() throws {
+    @Test
+    func `Nil path returns current directory`() throws {
         let sut = makeSUT()
 
         let dir = try sut.getDirectoryAtPathOrCurrent(path: nil)
@@ -65,8 +66,8 @@ extension DefaultFileSystemTests {
         #expect(dir.path == sut.currentDirectory.path)
     }
 
-    @Test("Provided path returns directory at that path")
-    func providedPathReturnsDirectory() throws {
+    @Test
+    func `Provided path returns directory at that path`() throws {
         let sut = makeSUT()
         let tempPath = NSTemporaryDirectory()
 

@@ -10,45 +10,46 @@ import Foundation
 @testable import NnFileKit
 
 struct DefaultDirectoryTests {
-    @Test("Trailing slash is added to paths that lack one")
-    func trailingSlashAdded() throws {
+    @Test
+    func `Trailing slash is added to paths that lack one`() throws {
         let sut = try makeSUT(path: "/tmp/test")
 
         #expect(sut.path == "/tmp/test/")
     }
 
-    @Test("Existing trailing slash in path is preserved")
-    func trailingSlashPreserved() throws {
+    @Test
+    func `Existing trailing slash in path is preserved`() throws {
         let sut = try makeSUT(path: "/tmp/test/")
 
         #expect(sut.path == "/tmp/test/")
     }
 
-    @Test("Name is derived from last path component")
-    func nameDerived() throws {
+    @Test
+    func `Name is derived from last path component`() throws {
         let sut = try makeSUT(path: "/tmp/myFolder")
 
         #expect(sut.name == "myFolder")
     }
 
-    @Test("File extension is extracted when present in path")
-    func extensionExtracted() throws {
+    @Test
+    func `File extension is extracted when present in path`() throws {
         let sut = try makeSUT(path: "/tmp/archive.zip")
 
         #expect(sut.extension == "zip")
     }
 
-    @Test("No extension is reported for extensionless paths")
-    func noExtension() throws {
+    @Test
+    func `No extension is reported for extensionless paths`() throws {
         let sut = try makeSUT(path: "/tmp/folder")
 
         #expect(sut.extension == nil)
     }
 }
 
+// MARK: - File Operations
 extension DefaultDirectoryTests {
-    @Test("New file is created with specified contents")
-    func createFile() throws {
+    @Test
+    func `New file is created with specified contents`() throws {
         let sut = try makeSUT()
 
         try sut.createFile(named: "test.txt", contents: "hello")
@@ -57,8 +58,8 @@ extension DefaultDirectoryTests {
         #expect(contents == "hello")
     }
 
-    @Test("Reading nonexistent file throws an error")
-    func readNonexistentFile() throws {
+    @Test
+    func `Reading nonexistent file throws an error`() throws {
         let sut = try makeSUT()
 
         #expect(throws: FileSystemError.self) {
@@ -66,23 +67,23 @@ extension DefaultDirectoryTests {
         }
     }
 
-    @Test("Existing file is detected as present")
-    func containsExistingFile() throws {
+    @Test
+    func `Existing file is detected as present`() throws {
         let sut = try makeSUT()
         try sut.createFile(named: "test.txt", contents: "")
 
         #expect(sut.containsFile(named: "test.txt"))
     }
 
-    @Test("Missing file is detected as absent")
-    func missingFileAbsent() throws {
+    @Test
+    func `Missing file is detected as absent`() throws {
         let sut = try makeSUT()
 
         #expect(!sut.containsFile(named: "nonexistent.txt"))
     }
 
-    @Test("Deleted file is no longer present")
-    func deleteFile() throws {
+    @Test
+    func `Deleted file is no longer present`() throws {
         let sut = try makeSUT()
         try sut.createFile(named: "test.txt", contents: "")
 
@@ -91,8 +92,8 @@ extension DefaultDirectoryTests {
         #expect(!sut.containsFile(named: "test.txt"))
     }
 
-    @Test("Subdirectory is not detected as a file")
-    func subdirectoryNotDetectedAsFile() throws {
+    @Test
+    func `Subdirectory is not detected as a file`() throws {
         let sut = try makeSUT()
         _ = try sut.createSubdirectory(named: "child")
 
@@ -100,9 +101,10 @@ extension DefaultDirectoryTests {
     }
 }
 
+// MARK: - Subdirectories and Lifecycle
 extension DefaultDirectoryTests {
-    @Test("New subdirectory is created at expected location")
-    func createSubdirectory() throws {
+    @Test
+    func `New subdirectory is created at expected location`() throws {
         let sut = try makeSUT()
 
         let sub = try sut.createSubdirectory(named: "child")
@@ -110,8 +112,8 @@ extension DefaultDirectoryTests {
         #expect(sub.name == "child")
     }
 
-    @Test("Existing subdirectory is returned by name")
-    func getExistingSubdirectory() throws {
+    @Test
+    func `Existing subdirectory is returned by name`() throws {
         let sut = try makeSUT()
         _ = try sut.createSubdirectory(named: "child")
 
@@ -120,8 +122,8 @@ extension DefaultDirectoryTests {
         #expect(sub.name == "child")
     }
 
-    @Test("Requesting nonexistent subdirectory throws an error")
-    func getNonexistentSubdirectory() throws {
+    @Test
+    func `Requesting nonexistent subdirectory throws an error`() throws {
         let sut = try makeSUT()
 
         #expect(throws: FileSystemError.self) {
@@ -129,8 +131,8 @@ extension DefaultDirectoryTests {
         }
     }
 
-    @Test("Subdirectory is created when it does not already exist")
-    func createSubfolderIfNeededCreates() throws {
+    @Test
+    func `Subdirectory is created when it does not already exist`() throws {
         let sut = try makeSUT()
 
         let sub = try sut.createSubfolderIfNeeded(named: "child")
@@ -138,8 +140,8 @@ extension DefaultDirectoryTests {
         #expect(sub.name == "child")
     }
 
-    @Test("Existing subdirectory is returned without duplication")
-    func createSubfolderIfNeededReturnsExisting() throws {
+    @Test
+    func `Existing subdirectory is returned without duplication`() throws {
         let sut = try makeSUT()
         let original = try sut.createSubdirectory(named: "child")
 
@@ -148,8 +150,8 @@ extension DefaultDirectoryTests {
         #expect(returned.path == original.path)
     }
 
-    @Test("All subdirectories are listed")
-    func listSubdirectories() throws {
+    @Test
+    func `All subdirectories are listed`() throws {
         let sut = try makeSUT()
         _ = try sut.createSubdirectory(named: "alpha")
         _ = try sut.createSubdirectory(named: "beta")
@@ -159,23 +161,23 @@ extension DefaultDirectoryTests {
         #expect(names == ["alpha", "beta"])
     }
 
-    @Test("Subdirectory presence is correctly detected")
-    func containsSubdirectory() throws {
+    @Test
+    func `Subdirectory presence is correctly detected`() throws {
         let sut = try makeSUT()
         _ = try sut.createSubdirectory(named: "child")
 
         #expect(sut.containsSubdirectory(named: "child"))
     }
 
-    @Test("Missing subdirectory absence is correctly detected")
-    func missingSubdirectoryAbsent() throws {
+    @Test
+    func `Missing subdirectory absence is correctly detected`() throws {
         let sut = try makeSUT()
 
         #expect(!sut.containsSubdirectory(named: "nonexistent"))
     }
 
-    @Test("Directory is removed from filesystem on delete")
-    func deleteDirectory() throws {
+    @Test
+    func `Directory is removed from filesystem on delete`() throws {
         let sut = try makeSUT()
 
         try sut.delete()
@@ -183,8 +185,8 @@ extension DefaultDirectoryTests {
         #expect(!FileManager.default.fileExists(atPath: sut.path))
     }
 
-    @Test("Directory is moved to new parent location")
-    func moveDirectory() throws {
+    @Test
+    func `Directory is moved to new parent location`() throws {
         let sut = try makeSUT()
         let parent = try makeSUT()
         let originalName = sut.name
@@ -196,9 +198,10 @@ extension DefaultDirectoryTests {
     }
 }
 
+// MARK: - File Search
 extension DefaultDirectoryTests {
-    @Test("Files are filtered by extension")
-    func findFilesByExtension() throws {
+    @Test
+    func `Files are filtered by extension`() throws {
         let sut = try makeSUT()
         try sut.createFile(named: "a.txt", contents: "")
         try sut.createFile(named: "b.swift", contents: "")
@@ -208,8 +211,8 @@ extension DefaultDirectoryTests {
         #expect(found.count == 1)
     }
 
-    @Test("All files returned when no extension filter applied")
-    func findAllFiles() throws {
+    @Test
+    func `All files returned when no extension filter applied`() throws {
         let sut = try makeSUT()
         try sut.createFile(named: "a.txt", contents: "")
         try sut.createFile(named: "b.swift", contents: "")
@@ -219,8 +222,8 @@ extension DefaultDirectoryTests {
         #expect(found.count == 2)
     }
 
-    @Test("Recursive search includes files in subdirectories")
-    func findFilesRecursively() throws {
+    @Test
+    func `Recursive search includes files in subdirectories`() throws {
         let sut = try makeSUT()
         try sut.createFile(named: "top.txt", contents: "")
         let sub = try sut.createSubdirectory(named: "sub")
@@ -231,8 +234,8 @@ extension DefaultDirectoryTests {
         #expect(found.count == 2)
     }
 
-    @Test("Non-recursive search excludes files in subdirectories")
-    func findFilesNonRecursively() throws {
+    @Test
+    func `Non-recursive search excludes files in subdirectories`() throws {
         let sut = try makeSUT()
         try sut.createFile(named: "top.txt", contents: "")
         let sub = try sut.createSubdirectory(named: "sub")
@@ -244,9 +247,10 @@ extension DefaultDirectoryTests {
     }
 }
 
+// MARK: - Copy
 extension DefaultDirectoryTests {
-    @Test("Single file is copied into another directory")
-    func copyFileIntoDirectory() throws {
+    @Test
+    func `Single file is copied into another directory`() throws {
         let sut = try makeSUT()
         let destination = try makeSUT()
         try sut.createFile(named: "note.txt", contents: "hello")
@@ -256,8 +260,8 @@ extension DefaultDirectoryTests {
         #expect(try destination.readFile(named: "note.txt") == "hello")
     }
 
-    @Test("Copied tree preserves its nested structure")
-    func copyTreePreservesNesting() throws {
+    @Test
+    func `Copied tree preserves its nested structure`() throws {
         let sut = try makeSUT()
         let destination = try makeSUT()
         let sub = try sut.createSubdirectory(named: "sub")
@@ -269,8 +273,8 @@ extension DefaultDirectoryTests {
         #expect(FileManager.default.fileExists(atPath: nestedPath))
     }
 
-    @Test("Copied file keeps bytes that are not valid UTF-8")
-    func copyPreservesBinaryContent() throws {
+    @Test
+    func `Copied file keeps bytes that are not valid UTF-8`() throws {
         let sut = try makeSUT()
         let destination = try makeSUT()
         let bytes = Data([0xFF, 0xFE, 0x00, 0x80, 0xC0, 0x01])
@@ -282,8 +286,8 @@ extension DefaultDirectoryTests {
         #expect(copiedBytes == bytes)
     }
 
-    @Test("Copy returns the new directory rather than the source")
-    func copyReturnsTheCopy() throws {
+    @Test
+    func `Copy returns the new directory rather than the source`() throws {
         let sut = try makeSUT()
         let destination = try makeSUT()
 
@@ -293,8 +297,8 @@ extension DefaultDirectoryTests {
         #expect(copy.path != sut.path)
     }
 
-    @Test("Copying a file returns its destination path")
-    func copyFileReturnsDestinationPath() throws {
+    @Test
+    func `Copying a file returns its destination path`() throws {
         let sut = try makeSUT()
         let destination = try makeSUT()
         try sut.createFile(named: "note.txt", contents: "")
@@ -305,9 +309,10 @@ extension DefaultDirectoryTests {
     }
 }
 
+// MARK: - Copy Overwrite
 extension DefaultDirectoryTests {
-    @Test("Copying without overwrite fails when the destination already exists")
-    func copyWithoutOverwriteThrowsOnCollision() throws {
+    @Test
+    func `Copying without overwrite fails when the destination already exists`() throws {
         let sut = try makeSUT()
         let destination = try makeSUT()
         try sut.copy(to: destination, overwrite: false)
@@ -317,8 +322,8 @@ extension DefaultDirectoryTests {
         }
     }
 
-    @Test("Copying with overwrite replaces an existing destination")
-    func copyWithOverwriteReplacesDestination() throws {
+    @Test
+    func `Copying with overwrite replaces an existing destination`() throws {
         let sut = try makeSUT()
         let destination = try makeSUT()
         let copy = try sut.copy(to: destination, overwrite: false)
@@ -329,8 +334,8 @@ extension DefaultDirectoryTests {
         #expect(!FileManager.default.fileExists(atPath: copy.path.appendingPathComponent("stale.txt")))
     }
 
-    @Test("Copying with overwrite succeeds when the destination does not exist")
-    func copyWithOverwriteSucceedsWhenAbsent() throws {
+    @Test
+    func `Copying with overwrite succeeds when the destination does not exist`() throws {
         let sut = try makeSUT()
         let destination = try makeSUT()
 
@@ -339,8 +344,8 @@ extension DefaultDirectoryTests {
         #expect(FileManager.default.fileExists(atPath: copy.path))
     }
 
-    @Test("Copying a file without overwrite fails when the name is taken")
-    func copyFileWithoutOverwriteThrowsOnCollision() throws {
+    @Test
+    func `Copying a file without overwrite fails when the name is taken`() throws {
         let sut = try makeSUT()
         let destination = try makeSUT()
         try sut.createFile(named: "note.txt", contents: "source")
@@ -351,8 +356,8 @@ extension DefaultDirectoryTests {
         }
     }
 
-    @Test("Copying a file with overwrite replaces the existing file")
-    func copyFileWithOverwriteReplacesFile() throws {
+    @Test
+    func `Copying a file with overwrite replaces the existing file`() throws {
         let sut = try makeSUT()
         let destination = try makeSUT()
         try sut.createFile(named: "note.txt", contents: "source")
@@ -364,9 +369,10 @@ extension DefaultDirectoryTests {
     }
 }
 
+// MARK: - Copy Errors
 extension DefaultDirectoryTests {
-    @Test("Copying a file that is not present fails")
-    func copyFileThrowsWhenSourceMissing() throws {
+    @Test
+    func `Copying a file that is not present fails`() throws {
         let sut = try makeSUT()
         let destination = try makeSUT()
 
@@ -375,8 +381,8 @@ extension DefaultDirectoryTests {
         }
     }
 
-    @Test("Copying into a destination that does not exist fails")
-    func copyThrowsWhenDestinationMissing() throws {
+    @Test
+    func `Copying into a destination that does not exist fails`() throws {
         let sut = try makeSUT()
         let destination = try makeSUT(path: NSTemporaryDirectory().appendingPathComponent(UUID().uuidString))
 
@@ -385,8 +391,8 @@ extension DefaultDirectoryTests {
         }
     }
 
-    @Test("Copying a directory into its own subdirectory fails")
-    func copyIntoOwnSubdirectoryThrows() throws {
+    @Test
+    func `Copying a directory into its own subdirectory fails`() throws {
         let sut = try makeSUT()
         let inner = try sut.createSubdirectory(named: "inner")
 

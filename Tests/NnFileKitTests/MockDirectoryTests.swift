@@ -10,30 +10,30 @@ import NnFileKit
 @testable import NnFileTesting
 
 struct MockDirectoryTests {
-    @Test("Path and name are derived from initialization path")
-    func pathAndName() {
+    @Test
+    func `Path and name are derived from initialization path`() {
         let sut = makeSUT(path: "/Users/Home/Projects")
 
         #expect(sut.path == "/Users/Home/Projects")
         #expect(sut.name == "Projects")
     }
 
-    @Test("Extension is extracted when provided")
-    func extensionProvided() {
+    @Test
+    func `Extension is extracted when provided`() {
         let sut = makeSUT(ext: "txt")
 
         #expect(sut.extension == "txt")
     }
 
-    @Test("Extension is nil when not provided")
-    func extensionNil() {
+    @Test
+    func `Extension is nil when not provided`() {
         let sut = makeSUT()
 
         #expect(sut.extension == nil)
     }
 
-    @Test("Delete and move state starts at baseline")
-    func startingValues() {
+    @Test
+    func `Delete and move state starts at baseline`() {
         let sut = makeSUT()
 
         #expect(sut.deleteCallCount == 0)
@@ -41,23 +41,24 @@ struct MockDirectoryTests {
     }
 }
 
+// MARK: - File Operations
 extension MockDirectoryTests {
-    @Test("Configured file is detected as present")
-    func containsConfiguredFile() {
+    @Test
+    func `Configured file is detected as present`() {
         let sut = makeSUT(containedFiles: ["readme.md"])
 
         #expect(sut.containsFile(named: "readme.md"))
     }
 
-    @Test("Unconfigured file is detected as absent")
-    func doesNotContainUnconfiguredFile() {
+    @Test
+    func `Unconfigured file is detected as absent`() {
         let sut = makeSUT()
 
         #expect(!sut.containsFile(named: "missing.txt"))
     }
 
-    @Test("Created file is added to contained files")
-    func createFileAddsToContainedFiles() throws {
+    @Test
+    func `Created file is added to contained files`() throws {
         let sut = makeSUT()
 
         try sut.createFile(named: "new.txt", contents: "hello")
@@ -65,8 +66,8 @@ extension MockDirectoryTests {
         #expect(sut.containsFile(named: "new.txt"))
     }
 
-    @Test("Created file contents are readable")
-    func createFileStoresContents() throws {
+    @Test
+    func `Created file contents are readable`() throws {
         let sut = makeSUT()
 
         try sut.createFile(named: "new.txt", contents: "hello")
@@ -75,8 +76,8 @@ extension MockDirectoryTests {
         #expect(contents == "hello")
     }
 
-    @Test("Created file returns full path")
-    func createFileReturnsPath() throws {
+    @Test
+    func `Created file returns full path`() throws {
         let sut = makeSUT(path: "/tmp/test")
 
         let path = try sut.createFile(named: "file.txt", contents: "")
@@ -84,8 +85,8 @@ extension MockDirectoryTests {
         #expect(path == "/tmp/test/file.txt")
     }
 
-    @Test("Reading unconfigured file throws an error")
-    func readMissingFileThrows() {
+    @Test
+    func `Reading unconfigured file throws an error`() {
         let sut = makeSUT()
 
         #expect(throws: (any Error).self) {
@@ -93,8 +94,8 @@ extension MockDirectoryTests {
         }
     }
 
-    @Test("Deleted file is removed from contained files")
-    func deleteFileRemoves() throws {
+    @Test
+    func `Deleted file is removed from contained files`() throws {
         let sut = makeSUT(containedFiles: ["target.txt"])
 
         try sut.deleteFile(named: "target.txt")
@@ -103,10 +104,10 @@ extension MockDirectoryTests {
     }
 }
 
-
+// MARK: - Subdirectories
 extension MockDirectoryTests {
-    @Test("Configured subdirectory is returned by name")
-    func subdirectoryReturnsMatch() throws {
+    @Test
+    func `Configured subdirectory is returned by name`() throws {
         let child = MockDirectory(path: "/parent/child")
         let sut = makeSUT(subdirectories: [child])
 
@@ -115,8 +116,8 @@ extension MockDirectoryTests {
         #expect(result.path == "/parent/child")
     }
 
-    @Test("Unconfigured subdirectory throws an error")
-    func subdirectoryThrowsWhenMissing() {
+    @Test
+    func `Unconfigured subdirectory throws an error`() {
         let sut = makeSUT()
 
         #expect(throws: (any Error).self) {
@@ -124,8 +125,8 @@ extension MockDirectoryTests {
         }
     }
 
-    @Test("New subdirectory is created and added")
-    func createSubdirectoryAdds() throws {
+    @Test
+    func `New subdirectory is created and added`() throws {
         let sut = makeSUT(path: "/parent")
 
         let sub = try sut.createSubdirectory(named: "child")
@@ -134,8 +135,8 @@ extension MockDirectoryTests {
         #expect(sut.subdirectories.contains(where: { $0.name == "child" }))
     }
 
-    @Test("Existing subfolder is returned without duplication")
-    func createSubfolderIfNeededReturnsExisting() throws {
+    @Test
+    func `Existing subfolder is returned without duplication`() throws {
         let child = MockDirectory(path: "/parent/child")
         let sut = makeSUT(subdirectories: [child])
 
@@ -145,8 +146,8 @@ extension MockDirectoryTests {
         #expect(sut.subdirectories.count == 1)
     }
 
-    @Test("Missing subfolder is created and added")
-    func createSubfolderIfNeededCreatesNew() throws {
+    @Test
+    func `Missing subfolder is created and added`() throws {
         let sut = makeSUT(path: "/parent")
 
         _ = try sut.createSubfolderIfNeeded(named: "new")
@@ -154,8 +155,8 @@ extension MockDirectoryTests {
         #expect(sut.subdirectories.count == 1)
     }
 
-    @Test("All subdirectories are listed")
-    func subdirectoriesListed() {
+    @Test
+    func `All subdirectories are listed`() {
         let children: [any Directory] = [
             MockDirectory(path: "/parent/a"),
             MockDirectory(path: "/parent/b")
@@ -166,10 +167,10 @@ extension MockDirectoryTests {
     }
 }
 
-
+// MARK: - Recorded Calls
 extension MockDirectoryTests {
-    @Test("Delete increments the recorded call count")
-    func deleteRecordsCall() throws {
+    @Test
+    func `Delete increments the recorded call count`() throws {
         let sut = makeSUT()
 
         try sut.delete()
@@ -177,8 +178,8 @@ extension MockDirectoryTests {
         #expect(sut.deleteCallCount == 1)
     }
 
-    @Test("Move records parent path")
-    func moveRecordsParent() throws {
+    @Test
+    func `Move records parent path`() throws {
         let sut = makeSUT()
         let parent = MockDirectory(path: "/new/parent")
 
@@ -188,10 +189,10 @@ extension MockDirectoryTests {
     }
 }
 
-
+// MARK: - File Search
 extension MockDirectoryTests {
-    @Test("Files are filtered by extension")
-    func findFilesByExtension() throws {
+    @Test
+    func `Files are filtered by extension`() throws {
         let sut = makeSUT(path: "/dir", containedFiles: ["a.txt", "b.swift"])
 
         let found = try sut.findFiles(withExtension: "txt", recursive: false)
@@ -199,8 +200,8 @@ extension MockDirectoryTests {
         #expect(found.count == 1)
     }
 
-    @Test("All files returned when no extension filter applied")
-    func findAllFiles() throws {
+    @Test
+    func `All files returned when no extension filter applied`() throws {
         let sut = makeSUT(path: "/dir", containedFiles: ["a.txt", "b.swift"])
 
         let found = try sut.findFiles(withExtension: nil as String?, recursive: false)
@@ -208,8 +209,8 @@ extension MockDirectoryTests {
         #expect(found.count == 2)
     }
 
-    @Test("Recursive search includes subdirectory files")
-    func findFilesRecursively() throws {
+    @Test
+    func `Recursive search includes subdirectory files`() throws {
         let child = MockDirectory(path: "/dir/sub", containedFiles: ["nested.txt"])
         let sut = makeSUT(path: "/dir", containedFiles: ["top.txt"], subdirectories: [child])
 
@@ -219,10 +220,10 @@ extension MockDirectoryTests {
     }
 }
 
-
+// MARK: - Error Flag
 extension MockDirectoryTests {
-    @Test("Error flag causes subdirectory lookup to throw")
-    func throwErrorOnSubdirectory() {
+    @Test
+    func `Error flag causes subdirectory lookup to throw`() {
         let sut = makeSUT(throwError: true)
 
         #expect(throws: (any Error).self) {
@@ -230,8 +231,8 @@ extension MockDirectoryTests {
         }
     }
 
-    @Test("Error flag causes file creation to throw")
-    func throwErrorOnCreateFile() {
+    @Test
+    func `Error flag causes file creation to throw`() {
         let sut = makeSUT(throwError: true)
 
         #expect(throws: (any Error).self) {
@@ -239,8 +240,8 @@ extension MockDirectoryTests {
         }
     }
 
-    @Test("Error flag causes file read to throw")
-    func throwErrorOnReadFile() {
+    @Test
+    func `Error flag causes file read to throw`() {
         let sut = makeSUT(containedFiles: ["exists.txt"], throwError: true)
 
         #expect(throws: (any Error).self) {
@@ -248,8 +249,8 @@ extension MockDirectoryTests {
         }
     }
 
-    @Test("Error flag causes delete to throw")
-    func throwErrorOnDelete() {
+    @Test
+    func `Error flag causes delete to throw`() {
         let sut = makeSUT(throwError: true)
 
         #expect(throws: (any Error).self) {
@@ -257,8 +258,8 @@ extension MockDirectoryTests {
         }
     }
 
-    @Test("Error flag causes move to throw")
-    func throwErrorOnMove() {
+    @Test
+    func `Error flag causes move to throw`() {
         let sut = makeSUT(throwError: true)
 
         #expect(throws: (any Error).self) {
@@ -266,8 +267,8 @@ extension MockDirectoryTests {
         }
     }
 
-    @Test("Error flag causes find files to throw")
-    func throwErrorOnFindFiles() {
+    @Test
+    func `Error flag causes find files to throw`() {
         let sut = makeSUT(throwError: true)
 
         #expect(throws: (any Error).self) {
@@ -276,10 +277,10 @@ extension MockDirectoryTests {
     }
 }
 
-
+// MARK: - Copy
 extension MockDirectoryTests {
-    @Test("Copy records the destination parent and the overwrite value")
-    func copyRecordsParentAndOverwrite() throws {
+    @Test
+    func `Copy records the destination parent and the overwrite value`() throws {
         let sut = makeSUT()
         let parent = MockDirectory(path: "/new/parent")
 
@@ -288,8 +289,8 @@ extension MockDirectoryTests {
         #expect(sut.copiedToParents == [CopiedDirectory(parentPath: "/new/parent", overwrite: true)])
     }
 
-    @Test("Copy places the copy in the destination's subdirectories")
-    func copyAppendsToDestination() throws {
+    @Test
+    func `Copy places the copy in the destination's subdirectories`() throws {
         let sut = makeSUT(path: "/source/skill", containedFiles: ["SKILL.md"])
         let parent = MockDirectory(path: "/new/parent")
 
@@ -300,8 +301,8 @@ extension MockDirectoryTests {
         #expect(placed.containsFile(named: "SKILL.md"))
     }
 
-    @Test("Copying a file records its name, destination, and overwrite value")
-    func copyFileRecordsDetails() throws {
+    @Test
+    func `Copying a file records its name, destination, and overwrite value`() throws {
         let sut = makeSUT(containedFiles: ["note.txt"])
         let destination = MockDirectory(path: "/other")
 
@@ -311,8 +312,8 @@ extension MockDirectoryTests {
         #expect(sut.copiedFiles == [expected])
     }
 
-    @Test("Copying a file places its name and contents in the destination")
-    func copyFileAppliesToDestination() throws {
+    @Test
+    func `Copying a file places its name and contents in the destination`() throws {
         let sut = makeSUT()
         let destination = MockDirectory(path: "/other")
         try sut.createFile(named: "note.txt", contents: "hello")
@@ -323,8 +324,8 @@ extension MockDirectoryTests {
         #expect(try destination.readFile(named: "note.txt") == "hello")
     }
 
-    @Test("Error flag causes both copy operations to throw")
-    func throwErrorOnCopyOperations() {
+    @Test
+    func `Error flag causes both copy operations to throw`() {
         let sut = makeSUT(containedFiles: ["note.txt"], throwError: true)
         let destination = MockDirectory(path: "/other")
 
@@ -336,7 +337,6 @@ extension MockDirectoryTests {
         }
     }
 }
-
 
 // MARK: - SUT
 private extension MockDirectoryTests {
