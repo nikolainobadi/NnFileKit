@@ -38,6 +38,13 @@ extension DefaultFileSystem {
         return DefaultDirectory(path: path)
     }
 
+    @discardableResult
+    public func createDirectory(at path: String) throws -> any Directory {
+        try fileManager.createDirectory(atPath: path, withIntermediateDirectories: true)
+
+        return DefaultDirectory(path: path)
+    }
+
     public func desktopDirectory() throws -> any Directory {
         let desktopPath = (fileManager.homeDirectoryForCurrentUser.path as NSString).appendingPathComponent("Desktop")
         

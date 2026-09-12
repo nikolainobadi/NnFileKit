@@ -15,6 +15,7 @@ public final class MockFileSystem: FileSystem {
     private let directoryToLoad: (any Directory)?
     private let directoryMap: [String: any Directory]?
     private let fileContentsToRead: [String: String]
+    private let rootDirectory: any Directory
 
     public private(set) var capturedPaths: [String] = []
     public private(set) var pathToMoveToTrash: String?
@@ -49,8 +50,18 @@ public final class MockFileSystem: FileSystem {
         self.desktop = desktop ?? MockDirectory(path: homeDirectory.path.appendingPathComponent("Desktop"))
         self.fileContentsToRead = fileContentsToRead
         self.throwError = throwError
+        self.rootDirectory = MockDirectory(
+            path: "/",
+            subdirectories: [],
+            containedFiles: [],
+            throwError: false,
+            shouldThrowOnSubdirectory: false,
+            autoCreateSubdirectories: false,
+            ext: nil
+        )
     }
 
+    /// Resolves `directoryMap` first, then folders present in the home or root tree, then `directoryToLoad`.
     public func directory(at path: String) throws -> any Directory {
         try throwIfNeeded()
 
@@ -60,11 +71,34 @@ public final class MockFileSystem: FileSystem {
             return directory
         }
 
+        let tree = treeRoot(for: path)
+
+        if let directory = try? tree.directory.subdirectory(atRelativePath: tree.relativePath) {
+            return directory
+        }
+
         if let directoryToLoad {
             return directoryToLoad
         }
 
         throw NSError(domain: "MockFileSystem", code: 1)
+    }
+
+    /// Returns the `directoryMap` entry for `path` when present; otherwise creates the chain in the
+    /// home tree when `path` is under ``homeDirectory``, and in an in-memory root tree otherwise.
+    @discardableResult
+    public func createDirectory(at path: String) throws -> any Directory {
+        try throwIfNeeded()
+
+        capturedPaths.append(path)
+
+        if let directoryMap, let directory = directoryMap[path] {
+            return directory
+        }
+
+        let tree = treeRoot(for: path)
+
+        return try tree.directory.createSubdirectory(atRelativePath: tree.relativePath)
     }
 
     public func desktopDirectory() throws -> any Directory {
@@ -117,6 +151,19 @@ public final class MockFileSystem: FileSystem {
 
 // MARK: - Private Methods
 private extension MockFileSystem {
+    /// Returns the tree `path` belongs to and `path` relative to that tree's root.
+    /// The home check compares whole components, so `/Users/HomeOther` is not under `/Users/Home`.
+    func treeRoot(for path: String) -> (directory: any Directory, relativePath: String) {
+        let components = path.split(separator: "/").map(String.init)
+        let homeComponents = homeDirectory.path.split(separator: "/").map(String.init)
+
+        if components.starts(with: homeComponents) {
+            return (homeDirectory, components.dropFirst(homeComponents.count).joined(separator: "/"))
+        }
+
+        return (rootDirectory, components.joined(separator: "/"))
+    }
+
     func throwIfNeeded() throws {
         if throwError {
             throw NSError(domain: "MockFileSystem", code: 2)

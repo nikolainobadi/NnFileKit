@@ -25,6 +25,13 @@ public protocol FileSystem {
     /// - Throws: ``FileSystemError/directoryNotFound(_:)`` if no directory exists at `path`.
     func directory(at path: String) throws -> any Directory
 
+    /// Returns the directory at the specified path, creating it and any missing intermediates.
+    /// The get-or-create counterpart of ``directory(at:)``.
+    /// - Parameter path: The absolute path of the directory.
+    /// - Returns: The existing or newly created directory.
+    @discardableResult
+    func createDirectory(at path: String) throws -> any Directory
+
     /// Returns the current user's desktop directory.
     /// - Returns: The desktop directory.
     func desktopDirectory() throws -> any Directory

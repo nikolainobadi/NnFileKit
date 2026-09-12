@@ -6,6 +6,10 @@
 //
 
 /// Represents a directory on disk and provides operations for managing its files and subdirectories.
+///
+/// Every `named:` parameter is a single path component. Throwing methods reject a name containing `/`
+/// with ``FileSystemError/invalidName(_:)``; predicates return `false`. Use the `atRelativePath:`
+/// methods to address nested subdirectories.
 public protocol Directory {
     /// The absolute path of this directory.
     var path: String { get }
@@ -100,5 +104,46 @@ public extension Directory {
     /// - Returns: `true` if the subdirectory exists; otherwise `false`.
     func containsSubdirectory(named name: String) -> Bool {
         return (try? subdirectory(named: name)) != nil
+    }
+
+    /// Returns the subdirectory at the given relative path.
+    /// - Parameter path: A relative path such as `"a/b"`. Repeated separators collapse; an empty path returns this directory.
+    /// - Returns: The subdirectory at `path`.
+    /// - Throws: ``FileSystemError/invalidName(_:)`` if `path` begins with `/`, or an error if any component is missing.
+    func subdirectory(atRelativePath path: String) throws -> any Directory {
+        var current: any Directory = self
+
+        for component in try relativePathComponents(path) {
+            current = try current.subdirectory(named: component)
+        }
+
+        return current
+    }
+
+    /// Returns the subdirectory at the given relative path, creating it and any missing intermediates.
+    /// - Parameter path: A relative path such as `"a/b"`. Repeated separators collapse; an empty path returns this directory.
+    /// - Returns: The existing or newly created subdirectory.
+    /// - Throws: ``FileSystemError/invalidName(_:)`` if `path` begins with `/`, or an error if a component cannot be created.
+    @discardableResult
+    func createSubdirectory(atRelativePath path: String) throws -> any Directory {
+        var current: any Directory = self
+
+        for component in try relativePathComponents(path) {
+            current = try current.createSubfolderIfNeeded(named: component)
+        }
+
+        return current
+    }
+}
+
+// MARK: - Private Methods
+private extension Directory {
+    /// Splits a relative path into components, rejecting absolute paths.
+    func relativePathComponents(_ path: String) throws -> [String] {
+        guard !path.hasPrefix("/") else {
+            throw FileSystemError.invalidName(path)
+        }
+
+        return path.split(separator: "/").map(String.init)
     }
 }

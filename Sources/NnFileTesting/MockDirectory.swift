@@ -46,11 +46,16 @@ public final class MockDirectory: Directory {
     }
 
     public func containsFile(named name: String) -> Bool {
+        guard isSingleComponent(name) else {
+            return false
+        }
+
         return containedFiles.contains(name)
     }
 
     public func subdirectory(named name: String) throws -> any Directory {
         try throwIfNeeded()
+        try validateName(name)
 
         if shouldThrowOnSubdirectory {
             throw NSError(domain: "MockDirectory", code: 1)
@@ -69,8 +74,13 @@ public final class MockDirectory: Directory {
 
     public func createSubdirectory(named name: String) throws -> any Directory {
         try throwIfNeeded()
+        try validateName(name)
 
-        return try createSubfolderIfNeeded(named: name)
+        guard !subdirectories.contains(where: { $0.name == name }) else {
+            throw NSError(domain: "MockDirectory", code: 6, userInfo: [NSLocalizedDescriptionKey: "Directory already exists: \(name)"])
+        }
+
+        return appendSubdirectory(named: name)
     }
 
     public func move(to parent: any Directory) throws {
@@ -102,17 +112,18 @@ public final class MockDirectory: Directory {
 
     public func createSubfolderIfNeeded(named name: String) throws -> any Directory {
         try throwIfNeeded()
+        try validateName(name)
 
         if let existing = subdirectories.first(where: { $0.name == name }) {
             return existing
         }
-        let newSubdirectory = MockDirectory(path: path.appendingPathComponent(name))
-        subdirectories.append(newSubdirectory)
-        return newSubdirectory
+
+        return appendSubdirectory(named: name)
     }
 
     public func deleteFile(named name: String) throws {
         try throwIfNeeded()
+        try validateName(name)
 
         containedFiles.remove(name)
     }
@@ -120,6 +131,7 @@ public final class MockDirectory: Directory {
     @discardableResult
     public func createFile(named name: String, contents: String) throws -> String {
         try throwIfNeeded()
+        try validateName(name)
 
         containedFiles.insert(name)
         fileContents[name] = contents
@@ -129,6 +141,7 @@ public final class MockDirectory: Directory {
     @discardableResult
     public func copyFile(named name: String, to destination: any Directory, overwrite: Bool) throws -> String {
         try throwIfNeeded()
+        try validateName(name)
 
         guard containedFiles.contains(name) else {
             throw NSError(domain: "MockDirectory", code: 5, userInfo: [NSLocalizedDescriptionKey: "File not found: \(name)"])
@@ -147,6 +160,7 @@ public final class MockDirectory: Directory {
 
     public func readFile(named name: String) throws -> String {
         try throwIfNeeded()
+        try validateName(name)
 
         guard containedFiles.contains(name) else {
             throw NSError(domain: "MockDirectory", code: 3, userInfo: [NSLocalizedDescriptionKey: "File not found: \(name)"])
@@ -205,6 +219,35 @@ private extension MockDirectory {
         }
 
         return copy
+    }
+
+    /// Appends and returns a new child one path component below this directory.
+    func appendSubdirectory(named name: String) -> MockDirectory {
+        let newSubdirectory = MockDirectory(
+            path: path.appendingPathComponent(name),
+            subdirectories: [],
+            containedFiles: [],
+            throwError: false,
+            shouldThrowOnSubdirectory: false,
+            autoCreateSubdirectories: false,
+            ext: nil
+        )
+
+        subdirectories.append(newSubdirectory)
+
+        return newSubdirectory
+    }
+
+    /// Returns whether `name` is a single path component.
+    func isSingleComponent(_ name: String) -> Bool {
+        return !name.contains("/")
+    }
+
+    /// Throws ``FileSystemError/invalidName(_:)`` when `name` is not a single path component.
+    func validateName(_ name: String) throws {
+        guard isSingleComponent(name) else {
+            throw FileSystemError.invalidName(name)
+        }
     }
 
     func throwIfNeeded() throws {
