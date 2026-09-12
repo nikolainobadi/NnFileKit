@@ -5,8 +5,8 @@
 //  Created by Nikolai Nobadi on 6/19/24.
 //
 
-import Foundation
 import NnFileKit
+import Foundation
 
 /// The default folder path for configuration lists.
 public let DEFAULT_CONFIGLIST_FOLDER_PATH = "\(DefaultFileSystem().homeDirectory.path).config/NnConfigList"

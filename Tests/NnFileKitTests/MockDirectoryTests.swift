@@ -278,6 +278,67 @@ extension MockDirectoryTests {
 }
 
 
+extension MockDirectoryTests {
+    @Test("Copy records the destination parent and the overwrite value")
+    func copyRecordsParentAndOverwrite() throws {
+        let sut = makeSUT()
+        let parent = MockDirectory(path: "/new/parent")
+
+        try sut.copy(to: parent, overwrite: true)
+
+        #expect(sut.copiedToParents == [CopiedDirectory(parentPath: "/new/parent", overwrite: true)])
+    }
+
+    @Test("Copy places the copy in the destination's subdirectories")
+    func copyAppendsToDestination() throws {
+        let sut = makeSUT(path: "/source/skill", containedFiles: ["SKILL.md"])
+        let parent = MockDirectory(path: "/new/parent")
+
+        try sut.copy(to: parent, overwrite: false)
+
+        #expect(parent.containsSubdirectory(named: "skill"))
+        let placed = try parent.subdirectory(named: "skill")
+        #expect(placed.containsFile(named: "SKILL.md"))
+    }
+
+    @Test("Copying a file records its name, destination, and overwrite value")
+    func copyFileRecordsDetails() throws {
+        let sut = makeSUT(containedFiles: ["note.txt"])
+        let destination = MockDirectory(path: "/other")
+
+        try sut.copyFile(named: "note.txt", to: destination, overwrite: false)
+
+        let expected = CopiedFile(name: "note.txt", destinationPath: "/other/note.txt", overwrite: false)
+        #expect(sut.copiedFiles == [expected])
+    }
+
+    @Test("Copying a file places its name and contents in the destination")
+    func copyFileAppliesToDestination() throws {
+        let sut = makeSUT()
+        let destination = MockDirectory(path: "/other")
+        try sut.createFile(named: "note.txt", contents: "hello")
+
+        try sut.copyFile(named: "note.txt", to: destination, overwrite: false)
+
+        #expect(destination.containsFile(named: "note.txt"))
+        #expect(try destination.readFile(named: "note.txt") == "hello")
+    }
+
+    @Test("Error flag causes both copy operations to throw")
+    func throwErrorOnCopyOperations() {
+        let sut = makeSUT(containedFiles: ["note.txt"], throwError: true)
+        let destination = MockDirectory(path: "/other")
+
+        #expect(throws: (any Error).self) {
+            try sut.copy(to: destination, overwrite: false)
+        }
+        #expect(throws: (any Error).self) {
+            try sut.copyFile(named: "note.txt", to: destination, overwrite: false)
+        }
+    }
+}
+
+
 // MARK: - SUT
 private extension MockDirectoryTests {
     func makeSUT(

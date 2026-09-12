@@ -248,6 +248,161 @@ extension DefaultDirectoryTests {
 }
 
 
+extension DefaultDirectoryTests {
+    @Test("Single file is copied into another directory")
+    func copyFileIntoDirectory() throws {
+        let sut = try makeSUT()
+        let destination = try makeSUT()
+        try sut.createFile(named: "note.txt", contents: "hello")
+
+        try sut.copyFile(named: "note.txt", to: destination, overwrite: false)
+
+        #expect(try destination.readFile(named: "note.txt") == "hello")
+    }
+
+    @Test("Copied tree preserves its nested structure")
+    func copyTreePreservesNesting() throws {
+        let sut = try makeSUT()
+        let destination = try makeSUT()
+        let sub = try sut.createSubdirectory(named: "sub")
+        try sub.createFile(named: "nested.txt", contents: "deep")
+
+        let copy = try sut.copy(to: destination, overwrite: false)
+
+        let nestedPath = copy.path.appendingPathComponent("sub/nested.txt")
+        #expect(FileManager.default.fileExists(atPath: nestedPath))
+    }
+
+    @Test("Copied file keeps bytes that are not valid UTF-8")
+    func copyPreservesBinaryContent() throws {
+        let sut = try makeSUT()
+        let destination = try makeSUT()
+        let bytes = Data([0xFF, 0xFE, 0x00, 0x80, 0xC0, 0x01])
+        try bytes.write(to: URL(fileURLWithPath: sut.path.appendingPathComponent("image.bin")))
+
+        let copy = try sut.copy(to: destination, overwrite: false)
+
+        let copiedBytes = try Data(contentsOf: URL(fileURLWithPath: copy.path.appendingPathComponent("image.bin")))
+        #expect(copiedBytes == bytes)
+    }
+
+    @Test("Copy returns the new directory rather than the source")
+    func copyReturnsTheCopy() throws {
+        let sut = try makeSUT()
+        let destination = try makeSUT()
+
+        let copy = try sut.copy(to: destination, overwrite: false)
+
+        #expect(copy.path == destination.path.appendingPathComponent(sut.name) + "/")
+        #expect(copy.path != sut.path)
+    }
+
+    @Test("Copying a file returns its destination path")
+    func copyFileReturnsDestinationPath() throws {
+        let sut = try makeSUT()
+        let destination = try makeSUT()
+        try sut.createFile(named: "note.txt", contents: "")
+
+        let returnedPath = try sut.copyFile(named: "note.txt", to: destination, overwrite: false)
+
+        #expect(returnedPath == destination.path.appendingPathComponent("note.txt"))
+    }
+}
+
+
+extension DefaultDirectoryTests {
+    @Test("Copying without overwrite fails when the destination already exists")
+    func copyWithoutOverwriteThrowsOnCollision() throws {
+        let sut = try makeSUT()
+        let destination = try makeSUT()
+        try sut.copy(to: destination, overwrite: false)
+
+        #expect(throws: (any Error).self) {
+            try sut.copy(to: destination, overwrite: false)
+        }
+    }
+
+    @Test("Copying with overwrite replaces an existing destination")
+    func copyWithOverwriteReplacesDestination() throws {
+        let sut = try makeSUT()
+        let destination = try makeSUT()
+        let copy = try sut.copy(to: destination, overwrite: false)
+        try copy.createFile(named: "stale.txt", contents: "")
+
+        try sut.copy(to: destination, overwrite: true)
+
+        #expect(!FileManager.default.fileExists(atPath: copy.path.appendingPathComponent("stale.txt")))
+    }
+
+    @Test("Copying with overwrite succeeds when the destination does not exist")
+    func copyWithOverwriteSucceedsWhenAbsent() throws {
+        let sut = try makeSUT()
+        let destination = try makeSUT()
+
+        let copy = try sut.copy(to: destination, overwrite: true)
+
+        #expect(FileManager.default.fileExists(atPath: copy.path))
+    }
+
+    @Test("Copying a file without overwrite fails when the name is taken")
+    func copyFileWithoutOverwriteThrowsOnCollision() throws {
+        let sut = try makeSUT()
+        let destination = try makeSUT()
+        try sut.createFile(named: "note.txt", contents: "source")
+        try destination.createFile(named: "note.txt", contents: "existing")
+
+        #expect(throws: (any Error).self) {
+            try sut.copyFile(named: "note.txt", to: destination, overwrite: false)
+        }
+    }
+
+    @Test("Copying a file with overwrite replaces the existing file")
+    func copyFileWithOverwriteReplacesFile() throws {
+        let sut = try makeSUT()
+        let destination = try makeSUT()
+        try sut.createFile(named: "note.txt", contents: "source")
+        try destination.createFile(named: "note.txt", contents: "existing")
+
+        try sut.copyFile(named: "note.txt", to: destination, overwrite: true)
+
+        #expect(try destination.readFile(named: "note.txt") == "source")
+    }
+}
+
+
+extension DefaultDirectoryTests {
+    @Test("Copying a file that is not present fails")
+    func copyFileThrowsWhenSourceMissing() throws {
+        let sut = try makeSUT()
+        let destination = try makeSUT()
+
+        #expect(throws: (any Error).self) {
+            try sut.copyFile(named: "missing.txt", to: destination, overwrite: false)
+        }
+    }
+
+    @Test("Copying into a destination that does not exist fails")
+    func copyThrowsWhenDestinationMissing() throws {
+        let sut = try makeSUT()
+        let destination = try makeSUT(path: NSTemporaryDirectory().appendingPathComponent(UUID().uuidString))
+
+        #expect(throws: (any Error).self) {
+            try sut.copy(to: destination, overwrite: false)
+        }
+    }
+
+    @Test("Copying a directory into its own subdirectory fails")
+    func copyIntoOwnSubdirectoryThrows() throws {
+        let sut = try makeSUT()
+        let inner = try sut.createSubdirectory(named: "inner")
+
+        #expect(throws: (any Error).self) {
+            try sut.copy(to: inner, overwrite: false)
+        }
+    }
+}
+
+
 // MARK: - SUT
 private extension DefaultDirectoryTests {
     func makeSUT(path: String? = nil) throws -> DefaultDirectory {

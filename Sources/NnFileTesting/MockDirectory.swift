@@ -21,6 +21,8 @@ public final class MockDirectory: Directory {
     public var containedFiles: Set<String>
     public var fileContents: [String: String] = [:]
     public private(set) var movedToParents: [String] = []
+    public private(set) var copiedToParents: [CopiedDirectory] = []
+    public private(set) var copiedFiles: [CopiedFile] = []
     public private(set) var deleteCallCount: Int = 0
 
     /// Creates a mock directory.
@@ -77,6 +79,21 @@ public final class MockDirectory: Directory {
         movedToParents.append(parent.path)
     }
 
+    @discardableResult
+    public func copy(to parent: any Directory, overwrite: Bool) throws -> any Directory {
+        try throwIfNeeded()
+
+        copiedToParents.append(CopiedDirectory(parentPath: parent.path, overwrite: overwrite))
+
+        let copy = deepCopy(toPath: parent.path.appendingPathComponent(name))
+
+        if let mockParent = parent as? MockDirectory {
+            mockParent.subdirectories.append(copy)
+        }
+
+        return copy
+    }
+
     public func delete() throws {
         try throwIfNeeded()
 
@@ -107,6 +124,25 @@ public final class MockDirectory: Directory {
         containedFiles.insert(name)
         fileContents[name] = contents
         return path.appendingPathComponent(name)
+    }
+
+    @discardableResult
+    public func copyFile(named name: String, to destination: any Directory, overwrite: Bool) throws -> String {
+        try throwIfNeeded()
+
+        guard containedFiles.contains(name) else {
+            throw NSError(domain: "MockDirectory", code: 5, userInfo: [NSLocalizedDescriptionKey: "File not found: \(name)"])
+        }
+
+        let destinationPath = destination.path.appendingPathComponent(name)
+        copiedFiles.append(CopiedFile(name: name, destinationPath: destinationPath, overwrite: overwrite))
+
+        if let mockDestination = destination as? MockDirectory {
+            mockDestination.containedFiles.insert(name)
+            mockDestination.fileContents[name] = fileContents[name]
+        }
+
+        return destinationPath
     }
 
     public func readFile(named name: String) throws -> String {
@@ -148,9 +184,66 @@ public final class MockDirectory: Directory {
 
 // MARK: - Private Methods
 private extension MockDirectory {
+    /// Returns a deep copy rooted at `path`, so the copy shares no mutable children with the original.
+    func deepCopy(toPath path: String) -> MockDirectory {
+        let copy = MockDirectory(
+            path: path,
+            subdirectories: [],
+            containedFiles: containedFiles,
+            throwError: false,
+            shouldThrowOnSubdirectory: false,
+            autoCreateSubdirectories: false,
+            ext: `extension`
+        )
+
+        copy.fileContents = fileContents
+        copy.subdirectories = subdirectories.map { child -> any Directory in
+            guard let mockChild = child as? MockDirectory else {
+                return child
+            }
+
+            return mockChild.deepCopy(toPath: path.appendingPathComponent(mockChild.name))
+        }
+
+        return copy
+    }
+
     func throwIfNeeded() throws {
         if throwError {
             throw NSError(domain: "MockDirectory", code: 4)
         }
+    }
+}
+
+
+// MARK: - Dependencies
+/// A directory copy recorded by ``MockDirectory/copy(to:overwrite:)``.
+public struct CopiedDirectory: Equatable {
+    public let parentPath: String
+    public let overwrite: Bool
+
+    /// - Parameters:
+    ///   - parentPath: The path of the parent the directory was copied into.
+    ///   - overwrite: The value passed for `overwrite`.
+    public init(parentPath: String, overwrite: Bool) {
+        self.parentPath = parentPath
+        self.overwrite = overwrite
+    }
+}
+
+/// A file copy recorded by ``MockDirectory/copyFile(named:to:overwrite:)``.
+public struct CopiedFile: Equatable {
+    public let name: String
+    public let destinationPath: String
+    public let overwrite: Bool
+
+    /// - Parameters:
+    ///   - name: The name of the copied file.
+    ///   - destinationPath: The full path the file was copied to.
+    ///   - overwrite: The value passed for `overwrite`.
+    public init(name: String, destinationPath: String, overwrite: Bool) {
+        self.name = name
+        self.destinationPath = destinationPath
+        self.overwrite = overwrite
     }
 }

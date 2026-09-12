@@ -73,6 +73,15 @@ extension DefaultDirectory {
         try FileManager.default.moveItem(atPath: path, toPath: destinationPath)
     }
 
+    @discardableResult
+    public func copy(to parent: any Directory, overwrite: Bool) throws -> any Directory {
+        let destinationPath = (parent.path as NSString).appendingPathComponent(name)
+
+        try performCopy(from: path, to: destinationPath, overwrite: overwrite)
+
+        return DefaultDirectory(path: destinationPath)
+    }
+
     public func containsFile(named name: String) -> Bool {
         let filePath = (path as NSString).appendingPathComponent(name)
         var isDir: ObjCBool = false
@@ -122,6 +131,16 @@ extension DefaultDirectory {
         try contents.write(toFile: filePath, atomically: true, encoding: .utf8)
         
         return filePath
+    }
+
+    @discardableResult
+    public func copyFile(named name: String, to destination: any Directory, overwrite: Bool) throws -> String {
+        let sourcePath = (path as NSString).appendingPathComponent(name)
+        let destinationPath = (destination.path as NSString).appendingPathComponent(name)
+
+        try performCopy(from: sourcePath, to: destinationPath, overwrite: overwrite)
+
+        return destinationPath
     }
 
     public func readFile(named name: String) throws -> String {
@@ -177,5 +196,21 @@ extension DefaultDirectory {
                 return fullPath
             }
         }
+    }
+}
+
+
+// MARK: - Private Methods
+private extension DefaultDirectory {
+    /// Copies an item, removing an existing destination first when `overwrite` is `true`.
+    /// The existence check matters: `removeItem` throws when the path is absent.
+    func performCopy(from sourcePath: String, to destinationPath: String, overwrite: Bool) throws {
+        let fm = FileManager.default
+
+        if overwrite, fm.fileExists(atPath: destinationPath) {
+            try fm.removeItem(atPath: destinationPath)
+        }
+
+        try fm.copyItem(atPath: sourcePath, toPath: destinationPath)
     }
 }

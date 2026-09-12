@@ -26,6 +26,16 @@ public protocol Directory {
     /// - Parameter parent: The destination parent directory.
     func move(to parent: any Directory) throws
 
+    /// Copies this directory, as a tree, into the specified parent directory under its own name.
+    /// Preserves binary content, nested structure, and symlinks. The parent must already exist.
+    /// `overwrite` is not atomic — the existing destination is removed before the copy begins.
+    /// - Parameters:
+    ///   - parent: The destination parent directory.
+    ///   - overwrite: Pass `true` to replace an existing destination; `false` throws instead.
+    /// - Returns: The newly created copy.
+    @discardableResult
+    func copy(to parent: any Directory, overwrite: Bool) throws -> any Directory
+
     /// Returns whether a file with the given name exists in this directory.
     /// - Parameter name: The file name to check.
     /// - Returns: `true` if the file exists; otherwise `false`.
@@ -58,6 +68,17 @@ public protocol Directory {
     /// - Returns: The absolute path of the created file.
     @discardableResult
     func createFile(named name: String, contents: String) throws -> String
+
+    /// Copies a file from this directory into another directory under the same name.
+    /// Bytes are relocated without decoding, so binary content is preserved. The destination must
+    /// already exist. `overwrite` is not atomic — the existing file is removed before the copy.
+    /// - Parameters:
+    ///   - name: The name of the file to copy.
+    ///   - destination: The directory to copy the file into.
+    ///   - overwrite: Pass `true` to replace an existing file; `false` throws instead.
+    /// - Returns: The absolute path of the copied file.
+    @discardableResult
+    func copyFile(named name: String, to destination: any Directory, overwrite: Bool) throws -> String
 
     /// Reads the contents of a file as a UTF-8 string.
     /// - Parameter name: The file name.
