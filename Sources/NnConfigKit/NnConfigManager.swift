@@ -32,7 +32,6 @@ public struct NnConfigManager<Config: Codable>: Sendable {
     }
 }
 
-
 // MARK: - Load
 public extension NnConfigManager {
     /// Loads the configuration from the configuration file.
@@ -47,7 +46,6 @@ public extension NnConfigManager {
     }
 }
 
-
 // MARK: - Save
 public extension NnConfigManager {
     /// Saves the configuration to the configuration file.
@@ -61,7 +59,6 @@ public extension NnConfigManager {
         try configDir.createFile(named: configFileName.json, contents: jsonString)
     }
 }
-
 
 // MARK: - NestedConfigFiles
 public extension NnConfigManager {
@@ -134,7 +131,6 @@ public extension NnConfigManager {
         try removeTextFromFile(text: text, inDirectory: current, fileName: fileName)
     }
 }
-
 
 // MARK: - Private Methods
 private extension NnConfigManager {
@@ -213,7 +209,6 @@ private extension NnConfigManager {
         try directory.createFile(named: fileName, contents: updatedContents)
     }
 }
-
 
 // MARK: - Extension Dependencies
 extension String {

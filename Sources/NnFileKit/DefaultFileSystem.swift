@@ -18,7 +18,6 @@ public struct DefaultFileSystem: FileSystem, Sendable {
     }
 }
 
-
 // MARK: - FileSystem
 extension DefaultFileSystem {
     public var homeDirectory: any Directory {

@@ -115,7 +115,6 @@ public final class MockFileSystem: FileSystem {
     }
 }
 
-
 // MARK: - Private Methods
 private extension MockFileSystem {
     func throwIfNeeded() throws {

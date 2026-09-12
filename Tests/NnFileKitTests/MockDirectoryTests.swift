@@ -41,7 +41,6 @@ struct MockDirectoryTests {
     }
 }
 
-
 extension MockDirectoryTests {
     @Test("Configured file is detected as present")
     func containsConfiguredFile() {

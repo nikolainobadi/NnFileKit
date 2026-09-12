@@ -37,7 +37,6 @@ struct MockFileSystemTests {
     }
 }
 
-
 extension MockFileSystemTests {
     @Test("Directory map match is returned first")
     func directoryFromMap() throws {
@@ -90,7 +89,6 @@ extension MockFileSystemTests {
     }
 }
 
-
 extension MockFileSystemTests {
     @Test("Configured file contents are returned by path")
     func readFileReturnsContents() throws {
@@ -130,7 +128,6 @@ extension MockFileSystemTests {
     }
 }
 
-
 extension MockFileSystemTests {
     @Test("Nil path returns current directory")
     func getDirectoryAtPathOrCurrentNil() throws {
@@ -152,7 +149,6 @@ extension MockFileSystemTests {
         #expect(result.path == "/specific")
     }
 }
-
 
 extension MockFileSystemTests {
     @Test("Error flag causes directory lookup to throw")
@@ -212,7 +208,6 @@ extension MockFileSystemTests {
         #expect(sut.capturedPaths.isEmpty)
     }
 }
-
 
 // MARK: - SUT
 private extension MockFileSystemTests {

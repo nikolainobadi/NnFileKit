@@ -46,7 +46,6 @@ struct DefaultDirectoryTests {
     }
 }
 
-
 extension DefaultDirectoryTests {
     @Test("New file is created with specified contents")
     func createFile() throws {
@@ -100,7 +99,6 @@ extension DefaultDirectoryTests {
         #expect(!sut.containsFile(named: "child"))
     }
 }
-
 
 extension DefaultDirectoryTests {
     @Test("New subdirectory is created at expected location")
@@ -198,7 +196,6 @@ extension DefaultDirectoryTests {
     }
 }
 
-
 extension DefaultDirectoryTests {
     @Test("Files are filtered by extension")
     func findFilesByExtension() throws {
@@ -246,7 +243,6 @@ extension DefaultDirectoryTests {
         #expect(found.count == 1)
     }
 }
-
 
 extension DefaultDirectoryTests {
     @Test("Single file is copied into another directory")
@@ -309,7 +305,6 @@ extension DefaultDirectoryTests {
     }
 }
 
-
 extension DefaultDirectoryTests {
     @Test("Copying without overwrite fails when the destination already exists")
     func copyWithoutOverwriteThrowsOnCollision() throws {
@@ -369,7 +364,6 @@ extension DefaultDirectoryTests {
     }
 }
 
-
 extension DefaultDirectoryTests {
     @Test("Copying a file that is not present fails")
     func copyFileThrowsWhenSourceMissing() throws {
@@ -401,7 +395,6 @@ extension DefaultDirectoryTests {
         }
     }
 }
-
 
 // MARK: - SUT
 private extension DefaultDirectoryTests {

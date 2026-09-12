@@ -41,7 +41,6 @@ public protocol FileSystem {
     func writeFile(at path: String, contents: String) throws
 }
 
-
 // MARK: - Helpers
 public extension FileSystem {
     /// Returns the directory at the given path, falling back to ``currentDirectory`` when `path` is `nil`.

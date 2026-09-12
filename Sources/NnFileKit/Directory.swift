@@ -93,7 +93,6 @@ public protocol Directory {
     func findFiles(withExtension extension: String?, recursive: Bool) throws -> [String]
 }
 
-
 // MARK: - Convenience
 public extension Directory {
     /// Returns whether a subdirectory with the given name exists.

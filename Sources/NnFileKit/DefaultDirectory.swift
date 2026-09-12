@@ -20,7 +20,6 @@ public struct DefaultDirectory: Directory, Sendable {
     }
 }
 
-
 // MARK: - Static Helpers
 public extension DefaultDirectory {
     /// A directory pointing to the system's temporary directory.
@@ -198,7 +197,6 @@ extension DefaultDirectory {
         }
     }
 }
-
 
 // MARK: - Private Methods
 private extension DefaultDirectory {

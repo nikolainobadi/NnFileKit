@@ -55,7 +55,6 @@ struct DefaultFileSystemTests {
     }
 }
 
-
 extension DefaultFileSystemTests {
     @Test("Nil path returns current directory")
     func nilPathReturnsCurrent() throws {
@@ -76,7 +75,6 @@ extension DefaultFileSystemTests {
         #expect(dir.path == tempPath)
     }
 }
-
 
 // MARK: - SUT
 private extension DefaultFileSystemTests {

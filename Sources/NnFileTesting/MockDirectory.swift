@@ -181,7 +181,6 @@ public final class MockDirectory: Directory {
     }
 }
 
-
 // MARK: - Private Methods
 private extension MockDirectory {
     /// Returns a deep copy rooted at `path`, so the copy shares no mutable children with the original.
@@ -214,7 +213,6 @@ private extension MockDirectory {
         }
     }
 }
-
 
 // MARK: - Dependencies
 /// A directory copy recorded by ``MockDirectory/copy(to:overwrite:)``.

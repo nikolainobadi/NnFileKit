@@ -24,7 +24,6 @@ final class NnConfigManagerTests: XCTestCase {
     }
 }
 
-
 // MARK: - Default Config Folder Tests
 extension NnConfigManagerTests {
     func test_throws_error_when_config_does_not_exist_when_loading() throws {
@@ -91,7 +90,6 @@ extension NnConfigManagerTests {
     }
 }
 
-
 // MARK: - Custom Folder Tests
 extension NnConfigManagerTests {
     func test_throws_error_when_config_does_not_exist_in_custom_folder_when_loading() throws {
@@ -107,7 +105,6 @@ extension NnConfigManagerTests {
         try runSaveLoadUpdateTest(for: customConfig, updatedConfig: updatedConfig, configType: .customConfig)
     }
 }
-
 
 // MARK: - Unit Tests (Mock FileSystem)
 extension NnConfigManagerTests {
@@ -174,7 +171,6 @@ extension NnConfigManagerTests {
     }
 }
 
-
 // MARK: - SUT
 extension NnConfigManagerTests {
     func makeSUT(type: ConfigType) -> NnConfigManager<MockConfig> {
@@ -189,7 +185,6 @@ extension NnConfigManagerTests {
         return .init(firstSetting: firstSetting, secondSetting: secondSetting)
     }
 }
-
 
 // MARK: - Helpers
 extension NnConfigManagerTests {
@@ -224,7 +219,6 @@ extension NnConfigManagerTests {
     }
 }
 
-
 // MARK: - Assertion Helpers
 extension NnConfigManagerTests {
     func runSaveLoadUpdateTest(for config: MockConfig, updatedConfig: MockConfig, configType: ConfigType) throws {
@@ -244,7 +238,6 @@ extension NnConfigManagerTests {
         XCTAssertNotEqual(loadedConfig, loadedUpdatedConfig)
     }
 }
-
 
 // MARK: - Helper Methods
 private extension NnConfigManagerTests {
