@@ -60,6 +60,28 @@ extension MockFileSystemTests {
     }
 
     @Test
+    func `Directory present in the home tree is returned by path`() throws {
+        let child = MockDirectory(path: "/Users/Home/Projects")
+        let home = MockDirectory(path: "/Users/Home", subdirectories: [child])
+        let sut = makeSUT(homeDirectory: home)
+
+        let result = try sut.directory(at: child.path)
+
+        #expect(result.path == child.path)
+    }
+
+    @Test
+    func `Home path resolves to the home directory`() throws {
+        let home = MockDirectory(path: "/Users/Home")
+        let fallback = MockDirectory(path: "/fallback")
+        let sut = makeSUT(homeDirectory: home, directoryToLoad: fallback)
+
+        let result = try sut.directory(at: home.path)
+
+        #expect(result.path == home.path)
+    }
+
+    @Test
     func `Error is thrown when no map match and no fallback`() {
         let sut = makeSUT()
 
@@ -87,6 +109,113 @@ extension MockFileSystemTests {
         let result = try sut.desktopDirectory()
 
         #expect(result.path == "/custom/desktop")
+    }
+}
+
+// MARK: - Directory Creation
+extension MockFileSystemTests {
+    @Test
+    func `Creating a directory under home adds the chain to the home tree`() throws {
+        let home = MockDirectory(path: "/Users/Home")
+        let sut = makeSUT(homeDirectory: home)
+
+        try sut.createDirectory(at: "/Users/Home/Projects/App")
+
+        #expect(try home.subdirectory(named: "Projects").containsSubdirectory(named: "App"))
+    }
+
+    @Test
+    func `Directory created under home is returned at the requested path`() throws {
+        let sut = makeSUT()
+        let path = "/Users/Home/Projects/App"
+
+        let created = try sut.createDirectory(at: path)
+
+        #expect(created.path == path)
+    }
+
+    @Test
+    func `Directory created outside home is returned at the requested path`() throws {
+        let sut = makeSUT()
+        let path = "/opt/tools/bin"
+
+        let created = try sut.createDirectory(at: path)
+
+        #expect(created.path == path)
+    }
+
+    @Test
+    func `Directory created under home is found by path lookup`() throws {
+        let sut = makeSUT()
+        let path = "/Users/Home/Projects/App"
+        let created = try sut.createDirectory(at: path)
+
+        let found = try sut.directory(at: path)
+
+        #expect(found.path == created.path)
+    }
+
+    @Test
+    func `Directory created outside home is found by path lookup`() throws {
+        let sut = makeSUT()
+        let path = "/opt/tools/bin"
+        let created = try sut.createDirectory(at: path)
+
+        let found = try sut.directory(at: path)
+
+        #expect(found.path == created.path)
+    }
+
+    @Test
+    func `Creating an existing directory does not duplicate it`() throws {
+        let home = MockDirectory(path: "/Users/Home")
+        let sut = makeSUT(homeDirectory: home)
+        try sut.createDirectory(at: "/Users/Home/Projects")
+
+        try sut.createDirectory(at: "/Users/Home/Projects")
+
+        #expect(home.subdirectories.count == 1)
+    }
+
+    @Test
+    func `Mapped directory is returned instead of being created`() throws {
+        let path = "/Users/Home/Projects"
+        let mapped = MockDirectory(path: "/mapped")
+        let sut = makeSUT(directoryMap: [path: mapped])
+
+        let created = try sut.createDirectory(at: path)
+
+        #expect(created.path == mapped.path)
+    }
+
+    @Test
+    func `Fallback directory is returned instead of being created`() throws {
+        let fallback = MockDirectory(path: "/fallback")
+        let sut = makeSUT(directoryToLoad: fallback)
+
+        let created = try sut.createDirectory(at: "/Users/Home/Projects")
+
+        #expect(created.path == fallback.path)
+    }
+
+    @Test
+    func `Sibling path sharing the home prefix is not created under home`() throws {
+        let home = MockDirectory(path: "/Users/Home")
+        let sut = makeSUT(homeDirectory: home)
+
+        try sut.createDirectory(at: "/Users/HomeOther/App")
+
+        #expect(home.subdirectories.isEmpty)
+    }
+
+    @Test
+    func `Created paths are captured`() throws {
+        let sut = makeSUT()
+        let path = "/Users/Home/Projects"
+
+        try sut.createDirectory(at: path)
+
+        #expect(sut.capturedPaths == [path])
     }
 }
 
@@ -161,6 +290,15 @@ extension MockFileSystemTests {
 
         #expect(throws: (any Error).self) {
             try sut.directory(at: "/any")
+        }
+    }
+
+    @Test
+    func `Error flag causes directory creation to throw`() {
+        let sut = makeSUT(throwError: true)
+
+        #expect(throws: (any Error).self) {
+            try sut.createDirectory(at: "/Users/Home/Projects")
         }
     }
 

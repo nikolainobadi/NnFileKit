@@ -136,6 +136,16 @@ extension MockDirectoryTests {
     }
 
     @Test
+    func `Creating a subdirectory that already exists throws an error`() throws {
+        let sut = makeSUT()
+        _ = try sut.createSubdirectory(named: "child")
+
+        #expect(throws: (any Error).self) {
+            try sut.createSubdirectory(named: "child")
+        }
+    }
+
+    @Test
     func `Existing subfolder is returned without duplication`() throws {
         let child = MockDirectory(path: "/parent/child")
         let sut = makeSUT(subdirectories: [child])
@@ -164,6 +174,226 @@ extension MockDirectoryTests {
         let sut = makeSUT(subdirectories: children)
 
         #expect(sut.subdirectories.count == 2)
+    }
+}
+
+// MARK: - Name Validation
+extension MockDirectoryTests {
+    @Test
+    func `Subdirectory lookup rejects a name containing a slash`() throws {
+        let sut = makeSUT()
+        let name = "parent/child"
+        try sut.createSubdirectory(atRelativePath: name)
+
+        let error = try #require(throws: FileSystemError.self) {
+            try sut.subdirectory(named: name)
+        }
+
+        #expect(error.isInvalidName(name))
+    }
+
+    @Test
+    func `Creating a subdirectory rejects a name containing a slash`() throws {
+        let sut = makeSUT()
+        let name = "parent/child"
+        _ = try sut.createSubdirectory(named: "parent")
+
+        let error = try #require(throws: FileSystemError.self) {
+            try sut.createSubdirectory(named: name)
+        }
+
+        #expect(error.isInvalidName(name))
+    }
+
+    @Test
+    func `Ensuring a subfolder exists rejects a name containing a slash`() throws {
+        let sut = makeSUT()
+        let name = "parent/child"
+
+        let error = try #require(throws: FileSystemError.self) {
+            try sut.createSubfolderIfNeeded(named: name)
+        }
+
+        #expect(error.isInvalidName(name))
+    }
+
+    @Test
+    func `Subdirectory presence is false for a name containing a slash`() throws {
+        let sut = makeSUT()
+        let name = "parent/child"
+        try sut.createSubdirectory(atRelativePath: name)
+
+        #expect(!sut.containsSubdirectory(named: name))
+    }
+
+    @Test
+    func `File presence is false for a name containing a slash`() {
+        let name = "parent/note.txt"
+        let sut = makeSUT(containedFiles: [name])
+
+        #expect(!sut.containsFile(named: name))
+    }
+
+    @Test
+    func `Creating a file rejects a name containing a slash`() throws {
+        let sut = makeSUT()
+        let name = "parent/note.txt"
+
+        let error = try #require(throws: FileSystemError.self) {
+            try sut.createFile(named: name, contents: "")
+        }
+
+        #expect(error.isInvalidName(name))
+    }
+
+    @Test
+    func `Reading a file rejects a name containing a slash`() throws {
+        let name = "parent/note.txt"
+        let sut = makeSUT(containedFiles: [name])
+
+        let error = try #require(throws: FileSystemError.self) {
+            try sut.readFile(named: name)
+        }
+
+        #expect(error.isInvalidName(name))
+    }
+
+    @Test
+    func `Deleting a file rejects a name containing a slash`() throws {
+        let name = "parent/note.txt"
+        let sut = makeSUT(containedFiles: [name])
+
+        let error = try #require(throws: FileSystemError.self) {
+            try sut.deleteFile(named: name)
+        }
+
+        #expect(error.isInvalidName(name))
+    }
+
+    @Test
+    func `Copying a file rejects a name containing a slash`() throws {
+        let name = "parent/note.txt"
+        let sut = makeSUT(containedFiles: [name])
+        let destination = MockDirectory(path: "/other")
+
+        let error = try #require(throws: FileSystemError.self) {
+            try sut.copyFile(named: name, to: destination, overwrite: false)
+        }
+
+        #expect(error.isInvalidName(name))
+    }
+}
+
+// MARK: - Relative Paths
+extension MockDirectoryTests {
+    @Test
+    func `Creating a relative path creates every missing intermediate`() throws {
+        let sut = makeSUT()
+
+        try sut.createSubdirectory(atRelativePath: "a/b/c")
+
+        #expect(try sut.subdirectory(named: "a").containsSubdirectory(named: "b"))
+    }
+
+    @Test
+    func `Creating a relative path returns the deepest directory`() throws {
+        let sut = makeSUT()
+        let relativePath = "a/b/c"
+
+        let created = try sut.createSubdirectory(atRelativePath: relativePath)
+
+        #expect(created.path == sut.path.appendingPathComponent(relativePath))
+    }
+
+    @Test
+    func `Creating an existing relative path returns it without throwing`() throws {
+        let sut = makeSUT()
+        let first = try sut.createSubdirectory(atRelativePath: "a/b")
+
+        let second = try sut.createSubdirectory(atRelativePath: "a/b")
+
+        #expect(second.path == first.path)
+    }
+
+    @Test
+    func `A directory created by relative path is found by relative path`() throws {
+        let sut = makeSUT()
+        let created = try sut.createSubdirectory(atRelativePath: "a/b/c")
+
+        let found = try sut.subdirectory(atRelativePath: "a/b/c")
+
+        #expect(found.path == created.path)
+    }
+
+    @Test
+    func `Intermediates created by relative path are each named by one component`() throws {
+        let sut = makeSUT()
+
+        try sut.createSubdirectory(atRelativePath: "a/b")
+
+        #expect(sut.subdirectories.map(\.name) == ["a"])
+    }
+
+    @Test
+    func `Relative path lookup throws when a component is missing`() throws {
+        let sut = makeSUT()
+        _ = try sut.createSubdirectory(named: "a")
+
+        #expect(throws: (any Error).self) {
+            try sut.subdirectory(atRelativePath: "a/missing")
+        }
+    }
+
+    @Test
+    func `An empty relative path resolves to the directory itself`() throws {
+        let sut = makeSUT()
+
+        let found = try sut.subdirectory(atRelativePath: "")
+
+        #expect(found.path == sut.path)
+    }
+
+    @Test
+    func `Creating an empty relative path returns the directory itself`() throws {
+        let sut = makeSUT()
+
+        let created = try sut.createSubdirectory(atRelativePath: "")
+
+        #expect(created.path == sut.path)
+    }
+
+    @Test
+    func `Relative path lookup rejects a leading slash`() throws {
+        let sut = makeSUT()
+        let path = "/a"
+        _ = try sut.createSubdirectory(named: "a")
+
+        let error = try #require(throws: FileSystemError.self) {
+            try sut.subdirectory(atRelativePath: path)
+        }
+
+        #expect(error.isInvalidName(path))
+    }
+
+    @Test
+    func `Creating a relative path rejects a leading slash`() throws {
+        let sut = makeSUT()
+        let path = "/a/b"
+
+        let error = try #require(throws: FileSystemError.self) {
+            try sut.createSubdirectory(atRelativePath: path)
+        }
+
+        #expect(error.isInvalidName(path))
+    }
+
+    @Test
+    func `Repeated separators in a relative path are collapsed`() throws {
+        let sut = makeSUT()
+
+        let created = try sut.createSubdirectory(atRelativePath: "a//b")
+
+        #expect(created.path == sut.path.appendingPathComponent("a/b"))
     }
 }
 

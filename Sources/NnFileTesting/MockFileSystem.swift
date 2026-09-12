@@ -67,32 +67,22 @@ public final class MockFileSystem: FileSystem {
 
         capturedPaths.append(path)
 
-        if let directoryMap, let directory = directoryMap[path] {
+        if let directory = existingDirectory(at: path) {
             return directory
-        }
-
-        let tree = treeRoot(for: path)
-
-        if let directory = try? tree.directory.subdirectory(atRelativePath: tree.relativePath) {
-            return directory
-        }
-
-        if let directoryToLoad {
-            return directoryToLoad
         }
 
         throw NSError(domain: "MockFileSystem", code: 1)
     }
 
-    /// Returns the `directoryMap` entry for `path` when present; otherwise creates the chain in the
-    /// home tree when `path` is under ``homeDirectory``, and in an in-memory root tree otherwise.
+    /// Returns whatever ``directory(at:)`` would resolve; otherwise creates the chain in the home tree
+    /// when `path` is under ``homeDirectory``, and in an in-memory root tree otherwise.
     @discardableResult
     public func createDirectory(at path: String) throws -> any Directory {
         try throwIfNeeded()
 
         capturedPaths.append(path)
 
-        if let directoryMap, let directory = directoryMap[path] {
+        if let directory = existingDirectory(at: path) {
             return directory
         }
 
@@ -151,6 +141,21 @@ public final class MockFileSystem: FileSystem {
 
 // MARK: - Private Methods
 private extension MockFileSystem {
+    /// Resolves `path` through `directoryMap`, then the home or root tree, then `directoryToLoad`.
+    func existingDirectory(at path: String) -> (any Directory)? {
+        if let directoryMap, let directory = directoryMap[path] {
+            return directory
+        }
+
+        let tree = treeRoot(for: path)
+
+        if let directory = try? tree.directory.subdirectory(atRelativePath: tree.relativePath) {
+            return directory
+        }
+
+        return directoryToLoad
+    }
+
     /// Returns the tree `path` belongs to and `path` relative to that tree's root.
     /// The home check compares whole components, so `/Users/HomeOther` is not under `/Users/Home`.
     func treeRoot(for path: String) -> (directory: any Directory, relativePath: String) {

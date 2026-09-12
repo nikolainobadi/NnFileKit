@@ -169,6 +169,20 @@ extension NnConfigManagerTests {
             XCTFail("Expected MockDirectory")
         }
     }
+
+    func test_saveConfig_then_loadConfig_with_mock_round_trips_without_directory_map() throws {
+        let config = makeConfig()
+        let mockFS = MockFileSystem(homeDirectory: MockDirectory(path: "/Users/Home"))
+        let sut = NnConfigManager<MockConfig>(
+            projectName: "TestProject",
+            configFolderPath: "/Users/Home/configs/TestProject",
+            fileSystem: mockFS
+        )
+
+        try sut.saveConfig(config)
+
+        XCTAssertEqual(try sut.loadConfig(), config)
+    }
 }
 
 // MARK: - SUT
