@@ -240,6 +240,19 @@ extension MockDirectoryTests {
 
         #expect(error.isInvalidName(name))
     }
+
+    @Test
+    func `Comparing a file rejects a name containing a slash`() throws {
+        let name = "parent/note.txt"
+        let sut = makeSUT(containedFiles: [name])
+        let other = MockDirectory(path: "/other", containedFiles: [name])
+
+        let error = try #require(throws: FileSystemError.self) {
+            try sut.fileContentsEqual(named: name, in: other)
+        }
+
+        #expect(error.isInvalidName(name))
+    }
 }
 
 // MARK: - Relative Paths
@@ -408,6 +421,59 @@ extension MockDirectoryTests {
     }
 }
 
+// MARK: - File Comparison
+extension MockDirectoryTests {
+    @Test
+    func `Files with identical contents compare as equal`() throws {
+        let sut = makeSUT()
+        let other = MockDirectory(path: "/other")
+        try sut.createFile(named: "note.txt", contents: "same")
+        try other.createFile(named: "note.txt", contents: "same")
+
+        #expect(try sut.fileContentsEqual(named: "note.txt", in: other))
+    }
+
+    @Test
+    func `Files with different contents compare as unequal`() throws {
+        let sut = makeSUT()
+        let other = MockDirectory(path: "/other")
+        try sut.createFile(named: "note.txt", contents: "original")
+        try other.createFile(named: "note.txt", contents: "changed")
+
+        #expect(!(try sut.fileContentsEqual(named: "note.txt", in: other)))
+    }
+
+    @Test
+    func `A file missing from the other directory compares as unequal`() throws {
+        let sut = makeSUT()
+        let other = MockDirectory(path: "/other")
+        try sut.createFile(named: "note.txt", contents: "")
+
+        #expect(!(try sut.fileContentsEqual(named: "note.txt", in: other)))
+    }
+
+    @Test
+    func `A folder with the same name in the other directory compares as unequal`() throws {
+        let sut = makeSUT()
+        let other = MockDirectory(path: "/other")
+        try sut.createFile(named: "note.txt", contents: "")
+        _ = try other.createSubdirectory(named: "note.txt")
+
+        #expect(!(try sut.fileContentsEqual(named: "note.txt", in: other)))
+    }
+
+    @Test
+    func `Comparing a file this directory does not contain throws an error`() throws {
+        let sut = makeSUT()
+        let other = MockDirectory(path: "/other")
+        try other.createFile(named: "note.txt", contents: "")
+
+        #expect(throws: FileSystemError.self) {
+            try sut.fileContentsEqual(named: "note.txt", in: other)
+        }
+    }
+}
+
 // MARK: - Error Flag
 extension MockDirectoryTests {
     @Test(arguments: ThrowingOperation.allCases)
@@ -471,7 +537,7 @@ extension MockDirectoryTests {
 // MARK: - Error Flag Helpers
 extension MockDirectoryTests {
     enum ThrowingOperation: CaseIterable {
-        case subdirectory, createSubdirectory, createSubfolderIfNeeded, createFile, readFile, deleteFile, copyFile, findFiles, copy, move, delete
+        case subdirectory, createSubdirectory, createSubfolderIfNeeded, createFile, readFile, deleteFile, copyFile, fileContentsEqual, findFiles, copy, move, delete
     }
 
     func perform(_ operation: ThrowingOperation, on directory: MockDirectory) throws {
@@ -492,6 +558,8 @@ extension MockDirectoryTests {
             try directory.deleteFile(named: "note.txt")
         case .copyFile:
             try directory.copyFile(named: "note.txt", to: destination, overwrite: false)
+        case .fileContentsEqual:
+            _ = try directory.fileContentsEqual(named: "note.txt", in: destination)
         case .findFiles:
             _ = try directory.findFiles(withExtension: nil, recursive: false)
         case .copy:

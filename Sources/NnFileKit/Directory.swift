@@ -84,6 +84,15 @@ public protocol Directory {
     @discardableResult
     func copyFile(named name: String, to destination: any Directory, overwrite: Bool) throws -> String
 
+    /// Returns whether a file in this directory has the same bytes as the file with the same name in another directory.
+    /// Bytes are compared without decoding, so binary content is supported.
+    /// - Parameters:
+    ///   - name: The name of the file to compare.
+    ///   - other: The directory holding the file to compare against.
+    /// - Returns: `true` if the contents match; `false` if they differ or `other` has no file with that name.
+    /// - Throws: ``FileSystemError/fileNotFound(_:)`` if this directory has no file with that name.
+    func fileContentsEqual(named name: String, in other: any Directory) throws -> Bool
+
     /// Reads the contents of a file as a UTF-8 string.
     /// - Parameter name: The file name.
     /// - Returns: The file's contents.

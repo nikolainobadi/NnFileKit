@@ -158,6 +158,22 @@ public final class MockDirectory: Directory {
         return destinationPath
     }
 
+    /// Compares the stored contents of `name` here against the contents `other` reports for the same name.
+    public func fileContentsEqual(named name: String, in other: any Directory) throws -> Bool {
+        try throwIfNeeded()
+        try validateName(name)
+
+        guard containedFiles.contains(name) else {
+            throw FileSystemError.fileNotFound(path.appendingPathComponent(name))
+        }
+
+        guard other.containsFile(named: name) else {
+            return false
+        }
+
+        return try (fileContents[name] ?? "") == other.readFile(named: name)
+    }
+
     public func readFile(named name: String) throws -> String {
         try throwIfNeeded()
         try validateName(name)

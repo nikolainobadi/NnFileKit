@@ -158,6 +158,20 @@ extension DefaultDirectory {
         return destinationPath
     }
 
+    public func fileContentsEqual(named name: String, in other: any Directory) throws -> Bool {
+        try validateName(name)
+
+        let filePath = (path as NSString).appendingPathComponent(name)
+
+        guard containsFile(named: name) else {
+            throw FileSystemError.fileNotFound(filePath)
+        }
+
+        let otherPath = (other.path as NSString).appendingPathComponent(name)
+
+        return FileManager.default.contentsEqual(atPath: filePath, andPath: otherPath)
+    }
+
     public func readFile(named name: String) throws -> String {
         try validateName(name)
 

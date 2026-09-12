@@ -323,6 +323,21 @@ extension DefaultDirectoryTests {
 
         #expect(error.isInvalidName(name))
     }
+
+    @Test
+    func `Comparing a file rejects a name containing a slash`() throws {
+        let sut = try makeSUT()
+        let other = try makeSUT()
+        let name = "parent/note.txt"
+        let parent = try sut.createSubdirectory(named: "parent")
+        try parent.createFile(named: "note.txt", contents: "")
+
+        let error = try #require(throws: FileSystemError.self) {
+            try sut.fileContentsEqual(named: name, in: other)
+        }
+
+        #expect(error.isInvalidName(name))
+    }
 }
 
 // MARK: - Relative Paths
@@ -618,6 +633,82 @@ extension DefaultDirectoryTests {
 
         #expect(throws: (any Error).self) {
             try sut.copy(to: destination, overwrite: false)
+        }
+    }
+}
+
+// MARK: - File Comparison
+extension DefaultDirectoryTests {
+    @Test
+    func `Files with identical contents compare as equal`() throws {
+        let sut = try makeSUT()
+        let other = try makeSUT()
+        try sut.createFile(named: "note.txt", contents: "same")
+        try other.createFile(named: "note.txt", contents: "same")
+
+        #expect(try sut.fileContentsEqual(named: "note.txt", in: other))
+    }
+
+    @Test
+    func `Files with different contents compare as unequal`() throws {
+        let sut = try makeSUT()
+        let other = try makeSUT()
+        try sut.createFile(named: "note.txt", contents: "original")
+        try other.createFile(named: "note.txt", contents: "changed")
+
+        #expect(!(try sut.fileContentsEqual(named: "note.txt", in: other)))
+    }
+
+    @Test
+    func `Binary files with identical bytes compare as equal`() throws {
+        let sut = try makeSUT()
+        let other = try makeSUT()
+        let bytes = Data([0xFF, 0xFE, 0x00, 0x80, 0xC0, 0x01])
+        try bytes.write(to: URL(fileURLWithPath: sut.path.appendingPathComponent("image.bin")))
+        try bytes.write(to: URL(fileURLWithPath: other.path.appendingPathComponent("image.bin")))
+
+        #expect(try sut.fileContentsEqual(named: "image.bin", in: other))
+    }
+
+    @Test
+    func `A file missing from the other directory compares as unequal`() throws {
+        let sut = try makeSUT()
+        let other = try makeSUT()
+        try sut.createFile(named: "note.txt", contents: "")
+
+        #expect(!(try sut.fileContentsEqual(named: "note.txt", in: other)))
+    }
+
+    @Test
+    func `A folder with the same name in the other directory compares as unequal`() throws {
+        let sut = try makeSUT()
+        let other = try makeSUT()
+        try sut.createFile(named: "note.txt", contents: "")
+        _ = try other.createSubdirectory(named: "note.txt")
+
+        #expect(!(try sut.fileContentsEqual(named: "note.txt", in: other)))
+    }
+
+    @Test
+    func `Comparing a file this directory does not contain throws an error`() throws {
+        let sut = try makeSUT()
+        let other = try makeSUT()
+        try other.createFile(named: "note.txt", contents: "")
+
+        #expect(throws: FileSystemError.self) {
+            try sut.fileContentsEqual(named: "note.txt", in: other)
+        }
+    }
+
+    @Test
+    func `Comparing a folder rather than a file throws an error`() throws {
+        let sut = try makeSUT()
+        let other = try makeSUT()
+        _ = try sut.createSubdirectory(named: "folder")
+        _ = try other.createSubdirectory(named: "folder")
+
+        #expect(throws: FileSystemError.self) {
+            try sut.fileContentsEqual(named: "folder", in: other)
         }
     }
 }
