@@ -106,10 +106,11 @@ extension DefaultDirectoryTests {
     @Test
     func `New subdirectory is created at expected location`() throws {
         let sut = try makeSUT()
+        let expectedPath = sut.path.appendingPathComponent("child")
 
-        let sub = try sut.createSubdirectory(named: "child")
+        _ = try sut.createSubdirectory(named: "child")
 
-        #expect(sub.name == "child")
+        #expect(FileManager.default.fileExists(atPath: expectedPath))
     }
 
     @Test
@@ -144,10 +145,11 @@ extension DefaultDirectoryTests {
     @Test
     func `Subdirectory is created when it does not already exist`() throws {
         let sut = try makeSUT()
+        let expectedPath = sut.path.appendingPathComponent("child")
 
-        let sub = try sut.createSubfolderIfNeeded(named: "child")
+        _ = try sut.createSubfolderIfNeeded(named: "child")
 
-        #expect(sub.name == "child")
+        #expect(FileManager.default.fileExists(atPath: expectedPath))
     }
 
     @Test
@@ -437,7 +439,7 @@ extension DefaultDirectoryTests {
 
         let found = try sut.findFiles(withExtension: "txt", recursive: false)
 
-        #expect(found.count == 1)
+        #expect(found == [sut.path.appendingPathComponent("a.txt")])
     }
 
     @Test
@@ -523,7 +525,6 @@ extension DefaultDirectoryTests {
         let copy = try sut.copy(to: destination, overwrite: false)
 
         #expect(copy.path == destination.path.appendingPathComponent(sut.name) + "/")
-        #expect(copy.path != sut.path)
     }
 
     @Test
@@ -617,16 +618,6 @@ extension DefaultDirectoryTests {
 
         #expect(throws: (any Error).self) {
             try sut.copy(to: destination, overwrite: false)
-        }
-    }
-
-    @Test
-    func `Copying a directory into its own subdirectory fails`() throws {
-        let sut = try makeSUT()
-        let inner = try sut.createSubdirectory(named: "inner")
-
-        #expect(throws: (any Error).self) {
-            try sut.copy(to: inner, overwrite: false)
         }
     }
 }

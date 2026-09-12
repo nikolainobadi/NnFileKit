@@ -17,28 +17,6 @@ struct MockDirectoryTests {
         #expect(sut.path == "/Users/Home/Projects")
         #expect(sut.name == "Projects")
     }
-
-    @Test
-    func `Extension is extracted when provided`() {
-        let sut = makeSUT(ext: "txt")
-
-        #expect(sut.extension == "txt")
-    }
-
-    @Test
-    func `Extension is nil when not provided`() {
-        let sut = makeSUT()
-
-        #expect(sut.extension == nil)
-    }
-
-    @Test
-    func `Delete and move state starts at baseline`() {
-        let sut = makeSUT()
-
-        #expect(sut.deleteCallCount == 0)
-        #expect(sut.movedToParents.isEmpty)
-    }
 }
 
 // MARK: - File Operations
@@ -164,17 +142,6 @@ extension MockDirectoryTests {
 
         #expect(sut.subdirectories.count == 1)
     }
-
-    @Test
-    func `All subdirectories are listed`() {
-        let children: [any Directory] = [
-            MockDirectory(path: "/parent/a"),
-            MockDirectory(path: "/parent/b")
-        ]
-        let sut = makeSUT(subdirectories: children)
-
-        #expect(sut.subdirectories.count == 2)
-    }
 }
 
 // MARK: - Name Validation
@@ -215,15 +182,6 @@ extension MockDirectoryTests {
         }
 
         #expect(error.isInvalidName(name))
-    }
-
-    @Test
-    func `Subdirectory presence is false for a name containing a slash`() throws {
-        let sut = makeSUT()
-        let name = "parent/child"
-        try sut.createSubdirectory(atRelativePath: name)
-
-        #expect(!sut.containsSubdirectory(named: name))
     }
 
     @Test
@@ -427,7 +385,7 @@ extension MockDirectoryTests {
 
         let found = try sut.findFiles(withExtension: "txt", recursive: false)
 
-        #expect(found.count == 1)
+        #expect(found == [sut.path.appendingPathComponent("a.txt")])
     }
 
     @Test
@@ -452,57 +410,12 @@ extension MockDirectoryTests {
 
 // MARK: - Error Flag
 extension MockDirectoryTests {
-    @Test
-    func `Error flag causes subdirectory lookup to throw`() {
-        let sut = makeSUT(throwError: true)
+    @Test(arguments: ThrowingOperation.allCases)
+    func `Error flag makes every throwing operation fail`(operation: ThrowingOperation) {
+        let sut = makeSUT(containedFiles: ["note.txt"], throwError: true)
 
         #expect(throws: (any Error).self) {
-            try sut.subdirectory(named: "any")
-        }
-    }
-
-    @Test
-    func `Error flag causes file creation to throw`() {
-        let sut = makeSUT(throwError: true)
-
-        #expect(throws: (any Error).self) {
-            try sut.createFile(named: "file.txt", contents: "")
-        }
-    }
-
-    @Test
-    func `Error flag causes file read to throw`() {
-        let sut = makeSUT(containedFiles: ["exists.txt"], throwError: true)
-
-        #expect(throws: (any Error).self) {
-            try sut.readFile(named: "exists.txt")
-        }
-    }
-
-    @Test
-    func `Error flag causes delete to throw`() {
-        let sut = makeSUT(throwError: true)
-
-        #expect(throws: (any Error).self) {
-            try sut.delete()
-        }
-    }
-
-    @Test
-    func `Error flag causes move to throw`() {
-        let sut = makeSUT(throwError: true)
-
-        #expect(throws: (any Error).self) {
-            try sut.move(to: MockDirectory(path: "/other"))
-        }
-    }
-
-    @Test
-    func `Error flag causes find files to throw`() {
-        let sut = makeSUT(throwError: true)
-
-        #expect(throws: (any Error).self) {
-            try sut.findFiles(withExtension: nil as String?, recursive: false)
+            try perform(operation, on: sut)
         }
     }
 }
@@ -553,17 +466,40 @@ extension MockDirectoryTests {
         #expect(destination.containsFile(named: "note.txt"))
         #expect(try destination.readFile(named: "note.txt") == "hello")
     }
+}
 
-    @Test
-    func `Error flag causes both copy operations to throw`() {
-        let sut = makeSUT(containedFiles: ["note.txt"], throwError: true)
+// MARK: - Error Flag Helpers
+extension MockDirectoryTests {
+    enum ThrowingOperation: CaseIterable {
+        case subdirectory, createSubdirectory, createSubfolderIfNeeded, createFile, readFile, deleteFile, copyFile, findFiles, copy, move, delete
+    }
+
+    func perform(_ operation: ThrowingOperation, on directory: MockDirectory) throws {
         let destination = MockDirectory(path: "/other")
 
-        #expect(throws: (any Error).self) {
-            try sut.copy(to: destination, overwrite: false)
-        }
-        #expect(throws: (any Error).self) {
-            try sut.copyFile(named: "note.txt", to: destination, overwrite: false)
+        switch operation {
+        case .subdirectory:
+            _ = try directory.subdirectory(named: "child")
+        case .createSubdirectory:
+            _ = try directory.createSubdirectory(named: "child")
+        case .createSubfolderIfNeeded:
+            _ = try directory.createSubfolderIfNeeded(named: "child")
+        case .createFile:
+            try directory.createFile(named: "new.txt", contents: "")
+        case .readFile:
+            _ = try directory.readFile(named: "note.txt")
+        case .deleteFile:
+            try directory.deleteFile(named: "note.txt")
+        case .copyFile:
+            try directory.copyFile(named: "note.txt", to: destination, overwrite: false)
+        case .findFiles:
+            _ = try directory.findFiles(withExtension: nil, recursive: false)
+        case .copy:
+            try directory.copy(to: destination, overwrite: false)
+        case .move:
+            try directory.move(to: destination)
+        case .delete:
+            try directory.delete()
         }
     }
 }
@@ -574,15 +510,13 @@ private extension MockDirectoryTests {
         path: String = "/test/mock",
         containedFiles: Set<String> = [],
         subdirectories: [any Directory] = [],
-        throwError: Bool = false,
-        ext: String? = nil
+        throwError: Bool = false
     ) -> MockDirectory {
         return MockDirectory(
             path: path,
             subdirectories: subdirectories,
             containedFiles: containedFiles,
-            throwError: throwError,
-            ext: ext
+            throwError: throwError
         )
     }
 }

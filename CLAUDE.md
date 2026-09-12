@@ -37,10 +37,11 @@ Key invariants to preserve when touching either implementation pair:
 
 ## Testing conventions
 
-- `NnFileKitTests` uses swift-testing (`@Test`, `#expect`) with `struct` suites; `NnConfigKitTests` is still XCTest (`XCTestCase`, `XCTAssertEqual`).
+- Both test targets use swift-testing (`@Test`, `#expect`) with `struct` suites, running in parallel with no `.serialized`.
 - Every suite ends with a `// MARK: - SUT` private extension exposing `makeSUT(...)`; tests never construct types inline.
 - `@Test` descriptions are full sentences describing behavior ("Recursive search includes files in subdirectories"), not restatements of the function name.
-- `DefaultDirectory`/`DefaultFileSystem` tests hit the real file system inside `NSTemporaryDirectory()/UUID().uuidString`. `NnConfigManagerTests` writes to the *real* `~/.config/NnConfigList` and wipes those folders in `setUpWithError`/`tearDownWithError` — be careful when editing that cleanup.
+- `DefaultDirectory`/`DefaultFileSystem` tests hit the real file system inside `NSTemporaryDirectory()/UUID().uuidString`.
+- `NnConfigManagerTests` runs against `MockFileSystem`; `NnConfigManagerIntegrationTests` runs against `DefaultFileSystem` with a unique temp config folder per test. Nothing writes to the real `~/.config/NnConfigList`. Keep every test on its own path — a fixed shared path is what would force `.serialized` back in.
 
 ## The NnFileKit skill
 
