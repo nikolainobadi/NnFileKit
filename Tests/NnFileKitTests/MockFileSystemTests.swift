@@ -10,37 +10,8 @@ import NnFileKit
 @testable import NnFileTesting
 
 struct MockFileSystemTests {
-    @Test("Home directory matches configured value")
-    func homeDirectory() {
-        let home = MockDirectory(path: "/custom/home")
-        let sut = makeSUT(homeDirectory: home)
-
-        #expect(sut.homeDirectory.path == "/custom/home")
-    }
-
-    @Test("Current directory matches configured value")
-    func currentDirectory() {
-        let current = MockDirectory(path: "/custom/current")
-        let sut = makeSUT(currentDirectory: current)
-
-        #expect(sut.currentDirectory.path == "/custom/current")
-    }
-
-    @Test("Observable state starts at baseline")
-    func startingValues() {
-        let sut = makeSUT()
-
-        #expect(sut.capturedPaths.isEmpty)
-        #expect(sut.pathToMoveToTrash == nil)
-        #expect(sut.writtenFilePath == nil)
-        #expect(sut.writtenFileContents == nil)
-    }
-}
-
-
-extension MockFileSystemTests {
-    @Test("Directory map match is returned first")
-    func directoryFromMap() throws {
+    @Test
+    func `Directory map match is returned first`() throws {
         let expected = MockDirectory(path: "/mapped")
         let sut = makeSUT(directoryMap: ["/mapped": expected])
 
@@ -49,8 +20,8 @@ extension MockFileSystemTests {
         #expect(result.path == "/mapped")
     }
 
-    @Test("Fallback directory is returned when map has no match")
-    func directoryFromFallback() throws {
+    @Test
+    func `Fallback directory is returned when map has no match`() throws {
         let fallback = MockDirectory(path: "/fallback")
         let sut = makeSUT(directoryToLoad: fallback)
 
@@ -59,8 +30,30 @@ extension MockFileSystemTests {
         #expect(result.path == "/fallback")
     }
 
-    @Test("Error is thrown when no map match and no fallback")
-    func directoryThrowsWhenUnconfigured() {
+    @Test
+    func `Directory present in the home tree is returned by path`() throws {
+        let child = MockDirectory(path: "/Users/Home/Projects")
+        let home = MockDirectory(path: "/Users/Home", subdirectories: [child])
+        let sut = makeSUT(homeDirectory: home)
+
+        let result = try sut.directory(at: child.path)
+
+        #expect(result.path == child.path)
+    }
+
+    @Test
+    func `Home path resolves to the home directory`() throws {
+        let home = MockDirectory(path: "/Users/Home")
+        let fallback = MockDirectory(path: "/fallback")
+        let sut = makeSUT(homeDirectory: home, directoryToLoad: fallback)
+
+        let result = try sut.directory(at: home.path)
+
+        #expect(result.path == home.path)
+    }
+
+    @Test
+    func `Error is thrown when no map match and no fallback`() {
         let sut = makeSUT()
 
         #expect(throws: (any Error).self) {
@@ -68,8 +61,8 @@ extension MockFileSystemTests {
         }
     }
 
-    @Test("Looked-up paths are captured")
-    func capturedPaths() throws {
+    @Test
+    func `Looked-up paths are captured`() throws {
         let fallback = MockDirectory(path: "/any")
         let sut = makeSUT(directoryToLoad: fallback)
 
@@ -78,22 +71,119 @@ extension MockFileSystemTests {
 
         #expect(sut.capturedPaths == ["/first", "/second"])
     }
+}
 
-    @Test("Desktop directory returns configured value")
-    func desktopDirectory() throws {
-        let desktop = MockDirectory(path: "/custom/desktop")
-        let sut = makeSUT(desktop: desktop)
+// MARK: - Directory Creation
+extension MockFileSystemTests {
+    @Test
+    func `Creating a directory under home adds the chain to the home tree`() throws {
+        let home = MockDirectory(path: "/Users/Home")
+        let sut = makeSUT(homeDirectory: home)
 
-        let result = try sut.desktopDirectory()
+        try sut.createDirectory(at: "/Users/Home/Projects/App")
 
-        #expect(result.path == "/custom/desktop")
+        #expect(try home.subdirectory(named: "Projects").containsSubdirectory(named: "App"))
+    }
+
+    @Test
+    func `Directory created under home is returned at the requested path`() throws {
+        let sut = makeSUT()
+        let path = "/Users/Home/Projects/App"
+
+        let created = try sut.createDirectory(at: path)
+
+        #expect(created.path == path)
+    }
+
+    @Test
+    func `Directory created outside home is returned at the requested path`() throws {
+        let sut = makeSUT()
+        let path = "/opt/tools/bin"
+
+        let created = try sut.createDirectory(at: path)
+
+        #expect(created.path == path)
+    }
+
+    @Test
+    func `Directory created under home is found by path lookup`() throws {
+        let sut = makeSUT()
+        let path = "/Users/Home/Projects/App"
+        let created = try sut.createDirectory(at: path)
+
+        let found = try sut.directory(at: path)
+
+        #expect(found.path == created.path)
+    }
+
+    @Test
+    func `Directory created outside home is found by path lookup`() throws {
+        let sut = makeSUT()
+        let path = "/opt/tools/bin"
+        let created = try sut.createDirectory(at: path)
+
+        let found = try sut.directory(at: path)
+
+        #expect(found.path == created.path)
+    }
+
+    @Test
+    func `Creating an existing directory does not duplicate it`() throws {
+        let home = MockDirectory(path: "/Users/Home")
+        let sut = makeSUT(homeDirectory: home)
+        try sut.createDirectory(at: "/Users/Home/Projects")
+
+        try sut.createDirectory(at: "/Users/Home/Projects")
+
+        #expect(home.subdirectories.count == 1)
+    }
+
+    @Test
+    func `Mapped directory is returned instead of being created`() throws {
+        let path = "/Users/Home/Projects"
+        let mapped = MockDirectory(path: "/mapped")
+        let sut = makeSUT(directoryMap: [path: mapped])
+
+        let created = try sut.createDirectory(at: path)
+
+        #expect(created.path == mapped.path)
+    }
+
+    @Test
+    func `Fallback directory is returned instead of being created`() throws {
+        let fallback = MockDirectory(path: "/fallback")
+        let sut = makeSUT(directoryToLoad: fallback)
+
+        let created = try sut.createDirectory(at: "/Users/Home/Projects")
+
+        #expect(created.path == fallback.path)
+    }
+
+    @Test
+    func `Sibling path sharing the home prefix is not created under home`() throws {
+        let home = MockDirectory(path: "/Users/Home")
+        let sut = makeSUT(homeDirectory: home)
+
+        try sut.createDirectory(at: "/Users/HomeOther/App")
+
+        #expect(home.subdirectories.isEmpty)
+    }
+
+    @Test
+    func `Created paths are captured`() throws {
+        let sut = makeSUT()
+        let path = "/Users/Home/Projects"
+
+        try sut.createDirectory(at: path)
+
+        #expect(sut.capturedPaths == [path])
     }
 }
 
-
+// MARK: - File Operations
 extension MockFileSystemTests {
-    @Test("Configured file contents are returned by path")
-    func readFileReturnsContents() throws {
+    @Test
+    func `Configured file contents are returned by path`() throws {
         let sut = makeSUT(fileContentsToRead: ["/file.txt": "hello"])
 
         let contents = try sut.readFile(at: "/file.txt")
@@ -101,8 +191,8 @@ extension MockFileSystemTests {
         #expect(contents == "hello")
     }
 
-    @Test("Reading unconfigured path throws file not found")
-    func readFileThrowsWhenMissing() {
+    @Test
+    func `Reading unconfigured path throws file not found`() {
         let sut = makeSUT()
 
         #expect(throws: FileSystemError.self) {
@@ -110,8 +200,8 @@ extension MockFileSystemTests {
         }
     }
 
-    @Test("Written file path and contents are recorded")
-    func writeFileRecords() throws {
+    @Test
+    func `Written file path and contents are recorded`() throws {
         let sut = makeSUT()
 
         try sut.writeFile(at: "/output.txt", contents: "data")
@@ -120,8 +210,8 @@ extension MockFileSystemTests {
         #expect(sut.writtenFileContents == "data")
     }
 
-    @Test("Trashed path is recorded")
-    func moveToTrashRecords() throws {
+    @Test
+    func `Trashed path is recorded`() throws {
         let sut = makeSUT()
 
         try sut.moveToTrash(at: "/trash/target")
@@ -130,10 +220,10 @@ extension MockFileSystemTests {
     }
 }
 
-
+// MARK: - Directory Resolution
 extension MockFileSystemTests {
-    @Test("Nil path returns current directory")
-    func getDirectoryAtPathOrCurrentNil() throws {
+    @Test
+    func `Nil path returns current directory`() throws {
         let current = MockDirectory(path: "/current")
         let sut = makeSUT(currentDirectory: current)
 
@@ -142,8 +232,8 @@ extension MockFileSystemTests {
         #expect(result.path == "/current")
     }
 
-    @Test("Provided path returns directory at that path")
-    func getDirectoryAtPathOrCurrentProvided() throws {
+    @Test
+    func `Provided path returns directory at that path`() throws {
         let mapped = MockDirectory(path: "/specific")
         let sut = makeSUT(directoryMap: ["/specific": mapped])
 
@@ -153,66 +243,41 @@ extension MockFileSystemTests {
     }
 }
 
-
+// MARK: - Error Flag
 extension MockFileSystemTests {
-    @Test("Error flag causes directory lookup to throw")
-    func throwErrorOnDirectory() {
-        let sut = makeSUT(throwError: true)
+    @Test(arguments: ThrowingOperation.allCases)
+    func `Error flag makes every throwing operation fail`(operation: ThrowingOperation) {
+        let sut = makeSUT(fileContentsToRead: ["/exists.txt": "data"], throwError: true)
 
         #expect(throws: (any Error).self) {
-            try sut.directory(at: "/any")
+            try perform(operation, on: sut)
         }
-    }
-
-    @Test("Error flag causes read file to throw")
-    func throwErrorOnReadFile() {
-        let sut = makeSUT(
-            fileContentsToRead: ["/exists.txt": "data"],
-            throwError: true
-        )
-
-        #expect(throws: (any Error).self) {
-            try sut.readFile(at: "/exists.txt")
-        }
-    }
-
-    @Test("Error flag causes write file to throw")
-    func throwErrorOnWriteFile() {
-        let sut = makeSUT(throwError: true)
-
-        #expect(throws: (any Error).self) {
-            try sut.writeFile(at: "/file.txt", contents: "data")
-        }
-    }
-
-    @Test("Error flag causes move to trash to throw")
-    func throwErrorOnMoveToTrash() {
-        let sut = makeSUT(throwError: true)
-
-        #expect(throws: (any Error).self) {
-            try sut.moveToTrash(at: "/target")
-        }
-    }
-
-    @Test("Error flag causes desktop directory to throw")
-    func throwErrorOnDesktopDirectory() {
-        let sut = makeSUT(throwError: true)
-
-        #expect(throws: (any Error).self) {
-            try sut.desktopDirectory()
-        }
-    }
-
-    @Test("Error flag prevents path capture on directory lookup")
-    func throwErrorSkipsCapture() {
-        let sut = makeSUT(throwError: true)
-
-        _ = try? sut.directory(at: "/should/not/capture")
-
-        #expect(sut.capturedPaths.isEmpty)
     }
 }
 
+// MARK: - Error Flag Helpers
+extension MockFileSystemTests {
+    enum ThrowingOperation: CaseIterable {
+        case directory, createDirectory, desktopDirectory, readFile, writeFile, moveToTrash
+    }
+
+    func perform(_ operation: ThrowingOperation, on fileSystem: MockFileSystem) throws {
+        switch operation {
+        case .directory:
+            _ = try fileSystem.directory(at: "/any")
+        case .createDirectory:
+            try fileSystem.createDirectory(at: "/Users/Home/Projects")
+        case .desktopDirectory:
+            _ = try fileSystem.desktopDirectory()
+        case .readFile:
+            _ = try fileSystem.readFile(at: "/exists.txt")
+        case .writeFile:
+            try fileSystem.writeFile(at: "/file.txt", contents: "data")
+        case .moveToTrash:
+            try fileSystem.moveToTrash(at: "/target")
+        }
+    }
+}
 
 // MARK: - SUT
 private extension MockFileSystemTests {

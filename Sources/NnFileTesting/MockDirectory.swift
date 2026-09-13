@@ -21,6 +21,8 @@ public final class MockDirectory: Directory {
     public var containedFiles: Set<String>
     public var fileContents: [String: String] = [:]
     public private(set) var movedToParents: [String] = []
+    public private(set) var copiedToParents: [CopiedDirectory] = []
+    public private(set) var copiedFiles: [CopiedFile] = []
     public private(set) var deleteCallCount: Int = 0
 
     /// Creates a mock directory.
@@ -44,11 +46,16 @@ public final class MockDirectory: Directory {
     }
 
     public func containsFile(named name: String) -> Bool {
+        guard isSingleComponent(name) else {
+            return false
+        }
+
         return containedFiles.contains(name)
     }
 
     public func subdirectory(named name: String) throws -> any Directory {
         try throwIfNeeded()
+        try validateName(name)
 
         if shouldThrowOnSubdirectory {
             throw NSError(domain: "MockDirectory", code: 1)
@@ -67,14 +74,34 @@ public final class MockDirectory: Directory {
 
     public func createSubdirectory(named name: String) throws -> any Directory {
         try throwIfNeeded()
+        try validateName(name)
 
-        return try createSubfolderIfNeeded(named: name)
+        guard !subdirectories.contains(where: { $0.name == name }) else {
+            throw NSError(domain: "MockDirectory", code: 6, userInfo: [NSLocalizedDescriptionKey: "Directory already exists: \(name)"])
+        }
+
+        return appendSubdirectory(named: name)
     }
 
     public func move(to parent: any Directory) throws {
         try throwIfNeeded()
 
         movedToParents.append(parent.path)
+    }
+
+    @discardableResult
+    public func copy(to parent: any Directory, overwrite: Bool) throws -> any Directory {
+        try throwIfNeeded()
+
+        copiedToParents.append(CopiedDirectory(parentPath: parent.path, overwrite: overwrite))
+
+        let copy = deepCopy(toPath: parent.path.appendingPathComponent(name))
+
+        if let mockParent = parent as? MockDirectory {
+            mockParent.subdirectories.append(copy)
+        }
+
+        return copy
     }
 
     public func delete() throws {
@@ -85,17 +112,18 @@ public final class MockDirectory: Directory {
 
     public func createSubfolderIfNeeded(named name: String) throws -> any Directory {
         try throwIfNeeded()
+        try validateName(name)
 
         if let existing = subdirectories.first(where: { $0.name == name }) {
             return existing
         }
-        let newSubdirectory = MockDirectory(path: path.appendingPathComponent(name))
-        subdirectories.append(newSubdirectory)
-        return newSubdirectory
+
+        return appendSubdirectory(named: name)
     }
 
     public func deleteFile(named name: String) throws {
         try throwIfNeeded()
+        try validateName(name)
 
         containedFiles.remove(name)
     }
@@ -103,14 +131,52 @@ public final class MockDirectory: Directory {
     @discardableResult
     public func createFile(named name: String, contents: String) throws -> String {
         try throwIfNeeded()
+        try validateName(name)
 
         containedFiles.insert(name)
         fileContents[name] = contents
         return path.appendingPathComponent(name)
     }
 
+    @discardableResult
+    public func copyFile(named name: String, to destination: any Directory, overwrite: Bool) throws -> String {
+        try throwIfNeeded()
+        try validateName(name)
+
+        guard containedFiles.contains(name) else {
+            throw NSError(domain: "MockDirectory", code: 5, userInfo: [NSLocalizedDescriptionKey: "File not found: \(name)"])
+        }
+
+        let destinationPath = destination.path.appendingPathComponent(name)
+        copiedFiles.append(CopiedFile(name: name, destinationPath: destinationPath, overwrite: overwrite))
+
+        if let mockDestination = destination as? MockDirectory {
+            mockDestination.containedFiles.insert(name)
+            mockDestination.fileContents[name] = fileContents[name]
+        }
+
+        return destinationPath
+    }
+
+    /// Compares the stored contents of `name` here against the contents `other` reports for the same name.
+    public func fileContentsEqual(named name: String, in other: any Directory) throws -> Bool {
+        try throwIfNeeded()
+        try validateName(name)
+
+        guard containedFiles.contains(name) else {
+            throw FileSystemError.fileNotFound(path.appendingPathComponent(name))
+        }
+
+        guard other.containsFile(named: name) else {
+            return false
+        }
+
+        return try (fileContents[name] ?? "") == other.readFile(named: name)
+    }
+
     public func readFile(named name: String) throws -> String {
         try throwIfNeeded()
+        try validateName(name)
 
         guard containedFiles.contains(name) else {
             throw NSError(domain: "MockDirectory", code: 3, userInfo: [NSLocalizedDescriptionKey: "File not found: \(name)"])
@@ -145,12 +211,96 @@ public final class MockDirectory: Directory {
     }
 }
 
-
 // MARK: - Private Methods
 private extension MockDirectory {
+    /// Returns a deep copy rooted at `path`, so the copy shares no mutable children with the original.
+    func deepCopy(toPath path: String) -> MockDirectory {
+        let copy = MockDirectory(
+            path: path,
+            subdirectories: [],
+            containedFiles: containedFiles,
+            throwError: false,
+            shouldThrowOnSubdirectory: false,
+            autoCreateSubdirectories: false,
+            ext: `extension`
+        )
+
+        copy.fileContents = fileContents
+        copy.subdirectories = subdirectories.map { child -> any Directory in
+            guard let mockChild = child as? MockDirectory else {
+                return child
+            }
+
+            return mockChild.deepCopy(toPath: path.appendingPathComponent(mockChild.name))
+        }
+
+        return copy
+    }
+
+    /// Appends and returns a new child one path component below this directory.
+    func appendSubdirectory(named name: String) -> MockDirectory {
+        let newSubdirectory = MockDirectory(
+            path: path.appendingPathComponent(name),
+            subdirectories: [],
+            containedFiles: [],
+            throwError: false,
+            shouldThrowOnSubdirectory: false,
+            autoCreateSubdirectories: false,
+            ext: nil
+        )
+
+        subdirectories.append(newSubdirectory)
+
+        return newSubdirectory
+    }
+
+    /// Returns whether `name` is a single path component.
+    func isSingleComponent(_ name: String) -> Bool {
+        return !name.contains("/")
+    }
+
+    /// Throws ``FileSystemError/invalidName(_:)`` when `name` is not a single path component.
+    func validateName(_ name: String) throws {
+        guard isSingleComponent(name) else {
+            throw FileSystemError.invalidName(name)
+        }
+    }
+
     func throwIfNeeded() throws {
         if throwError {
             throw NSError(domain: "MockDirectory", code: 4)
         }
+    }
+}
+
+// MARK: - Dependencies
+/// A directory copy recorded by ``MockDirectory/copy(to:overwrite:)``.
+public struct CopiedDirectory: Equatable {
+    public let parentPath: String
+    public let overwrite: Bool
+
+    /// - Parameters:
+    ///   - parentPath: The path of the parent the directory was copied into.
+    ///   - overwrite: The value passed for `overwrite`.
+    public init(parentPath: String, overwrite: Bool) {
+        self.parentPath = parentPath
+        self.overwrite = overwrite
+    }
+}
+
+/// A file copy recorded by ``MockDirectory/copyFile(named:to:overwrite:)``.
+public struct CopiedFile: Equatable {
+    public let name: String
+    public let destinationPath: String
+    public let overwrite: Bool
+
+    /// - Parameters:
+    ///   - name: The name of the copied file.
+    ///   - destinationPath: The full path the file was copied to.
+    ///   - overwrite: The value passed for `overwrite`.
+    public init(name: String, destinationPath: String, overwrite: Bool) {
+        self.name = name
+        self.destinationPath = destinationPath
+        self.overwrite = overwrite
     }
 }

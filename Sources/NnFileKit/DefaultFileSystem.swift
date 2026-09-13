@@ -18,7 +18,6 @@ public struct DefaultFileSystem: FileSystem, Sendable {
     }
 }
 
-
 // MARK: - FileSystem
 extension DefaultFileSystem {
     public var homeDirectory: any Directory {
@@ -35,6 +34,13 @@ extension DefaultFileSystem {
         guard fileManager.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else {
             throw FileSystemError.directoryNotFound(path)
         }
+
+        return DefaultDirectory(path: path)
+    }
+
+    @discardableResult
+    public func createDirectory(at path: String) throws -> any Directory {
+        try fileManager.createDirectory(atPath: path, withIntermediateDirectories: true)
 
         return DefaultDirectory(path: path)
     }

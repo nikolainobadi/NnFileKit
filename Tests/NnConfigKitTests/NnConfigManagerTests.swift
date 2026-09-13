@@ -5,266 +5,317 @@
 //  Created by Nikolai Nobadi on 6/19/24.
 //
 
-import XCTest
+import Testing
 import NnFileKit
 import NnFileTesting
 @testable import NnConfigKit
 
-final class NnConfigManagerTests: XCTestCase {
-    let sampleTextLines = ["first", "second", "third"]
+struct NnConfigManagerTests {
+    @Test
+    func `Config folder defaults to a project folder inside the shared config list`() {
+        let projectName = "TestProject"
+        let sut = makeSUT(projectName: projectName, configFolderPath: nil, configFileName: nil).sut
 
-    override func setUpWithError() throws {
-        try super.setUpWithError()
-        try cleanConfigFolders()
+        #expect(sut.configFolderPath == "\(DEFAULT_CONFIGLIST_FOLDER_PATH)/\(projectName)")
     }
 
-    override func tearDownWithError() throws {
-        try super.tearDownWithError()
-        try cleanConfigFolders()
-    }
-}
+    @Test
+    func `Custom config folder is used when provided`() {
+        let folderPath = "/Users/Home/custom/TestProject"
+        let sut = makeSUT(projectName: "TestProject", configFolderPath: folderPath, configFileName: nil).sut
 
-
-// MARK: - Default Config Folder Tests
-extension NnConfigManagerTests {
-    func test_throws_error_when_config_does_not_exist_when_loading() throws {
-        try saveConfig(makeConfig(), configType: .customConfig)
-
-        XCTAssertThrowsError(try makeSUT(type: .defaultConfig).loadConfig())
+        #expect(sut.configFolderPath == folderPath)
     }
 
-    func test_saves_config_in_default_folder_and_overwrites_config_when_updating() throws {
-        let customConfig = makeConfig()
-        let updatedConfig = makeConfig(secondSetting: "newSetting")
+    @Test
+    func `Config file name defaults to the project name`() {
+        let projectName = "TestProject"
+        let sut = makeSUT(projectName: projectName, configFolderPath: nil, configFileName: nil).sut
 
-        try runSaveLoadUpdateTest(for: customConfig, updatedConfig: updatedConfig, configType: .defaultConfig)
+        #expect(sut.configFileName == projectName)
     }
 
-    func test_saves_and_deletes_nested_file_in_default_config_folder() throws {
-        let nestedFilePath = "NestedFolder/NestedFile"
-        let sut = makeSUT(type: .defaultConfig)
-        let configFolderPath = sut.configFolderPath
-        let completeFilePath = "\(configFolderPath)/\(nestedFilePath)"
-        let contents = makeNestedContent()
+    @Test
+    func `Custom config file name is used when provided`() {
+        let fileName = "Settings"
+        let sut = makeSUT(projectName: "TestProject", configFolderPath: nil, configFileName: fileName).sut
 
-        XCTAssertFalse(FileManager.default.fileExists(atPath: completeFilePath))
-
-        try sut.saveNestedConfigFile(contents: contents, nestedFilePath: nestedFilePath)
-
-        XCTAssertTrue(FileManager.default.fileExists(atPath: completeFilePath))
-
-        try sut.deletedNestedConfigFile(nestedFilePath: nestedFilePath)
-
-        XCTAssertFalse(FileManager.default.fileExists(atPath: completeFilePath))
-    }
-
-    func test_performs_all_operations_on_nested_file_in_default_config_folder() throws {
-        let newLine = "new line"
-        let contents = makeNestedContent()
-        let existingLine = sampleTextLines[0]
-        let nestedFilePath = "NestedFolder/NestedFile"
-        let sut = makeSUT(type: .defaultConfig)
-        let configFolderPath = sut.configFolderPath
-        let completeFilePath = "\(configFolderPath)/\(nestedFilePath)"
-
-        XCTAssertFalse(FileManager.default.fileExists(atPath: completeFilePath))
-
-        try sut.saveNestedConfigFile(contents: contents, nestedFilePath: nestedFilePath)
-        try sut.appendTextToNestedConfigFileIfNeeded(text: existingLine, nestedFilePath: nestedFilePath, asNewLine: true)
-
-        let initialContents = try String(contentsOfFile: completeFilePath, encoding: .utf8)
-
-        XCTAssertEqual(initialContents, contents)
-
-        try sut.appendTextToNestedConfigFileIfNeeded(text: newLine, nestedFilePath: nestedFilePath, asNewLine: true)
-
-        let newContents = try String(contentsOfFile: completeFilePath, encoding: .utf8)
-
-        XCTAssert(newContents.contains(newLine))
-
-        try sut.removeTextFromNestedConfigFile(text: existingLine, nestedFilePath: nestedFilePath)
-
-        let finalContents = try String(contentsOfFile: completeFilePath, encoding: .utf8)
-
-        XCTAssert(finalContents.contains(newLine))
-        XCTAssertFalse(finalContents.contains(existingLine))
+        #expect(sut.configFileName == fileName)
     }
 }
 
-
-// MARK: - Custom Folder Tests
+// MARK: - Load
 extension NnConfigManagerTests {
-    func test_throws_error_when_config_does_not_exist_in_custom_folder_when_loading() throws {
-        try saveConfig(makeConfig(), configType: .defaultConfig)
-
-        XCTAssertThrowsError(try makeSUT(type: .customConfig).loadConfig())
-    }
-
-    func test_saves_and_updates_config_in_custom_folder() throws {
-        let customConfig = makeConfig()
-        let updatedConfig = makeConfig(secondSetting: "newSetting")
-
-        try runSaveLoadUpdateTest(for: customConfig, updatedConfig: updatedConfig, configType: .customConfig)
-    }
-}
-
-
-// MARK: - Unit Tests (Mock FileSystem)
-extension NnConfigManagerTests {
-    func test_loadConfig_with_mock_returns_decoded_config() throws {
-        let config = makeConfig()
-        let data = try JSONEncoder.prettyOutput().encode(config)
-        let jsonString = String(data: data, encoding: .utf8)!
-
-        let mockDir = MockDirectory(path: "/mock/config", containedFiles: ["TestProject.json"])
-        mockDir.fileContents["TestProject.json"] = jsonString
-
-        let mockFS = MockFileSystem(directoryToLoad: mockDir)
-        let sut = NnConfigManager<MockConfig>(
-            projectName: "TestProject",
-            configFolderPath: "/mock/config",
-            fileSystem: mockFS
-        )
+    @Test
+    func `Saved config is loaded back`() throws {
+        let config = TestConfig(firstSetting: 1, secondSetting: "saved")
+        let sut = makeSUT(projectName: "TestProject", configFolderPath: "/Users/Home/.config/TestProject", configFileName: nil).sut
+        try sut.saveConfig(config)
 
         let loaded = try sut.loadConfig()
 
-        XCTAssertEqual(loaded, config)
+        #expect(loaded == config)
     }
 
-    func test_loadConfig_with_mock_throws_when_directory_missing() {
-        let mockFS = MockFileSystem()
-        let sut = NnConfigManager<MockConfig>(
-            projectName: "TestProject",
-            configFolderPath: "/mock/config",
-            fileSystem: mockFS
-        )
+    @Test
+    func `Loading throws when the config folder does not exist`() {
+        let sut = makeSUT(projectName: "TestProject", configFolderPath: "/Users/Home/.config/TestProject", configFileName: nil).sut
 
-        XCTAssertThrowsError(try sut.loadConfig())
+        #expect(throws: (any Error).self) {
+            try sut.loadConfig()
+        }
     }
 
-    func test_saveConfig_with_mock_writes_json_to_directory() throws {
-        let config = makeConfig()
-        let homeMock = MockDirectory(path: "/Users/Home")
-        let mockFS = MockFileSystem(homeDirectory: homeMock)
+    @Test
+    func `Loading throws when the config file does not exist`() throws {
+        let (sut, fileSystem) = makeSUT(projectName: "TestProject", configFolderPath: "/Users/Home/.config/TestProject", configFileName: nil)
+        try fileSystem.createDirectory(at: sut.configFolderPath)
 
-        let sut = NnConfigManager<MockConfig>(
-            projectName: "TestProject",
-            configFolderPath: "/Users/Home/configs/TestProject",
-            fileSystem: mockFS
-        )
+        #expect(throws: (any Error).self) {
+            try sut.loadConfig()
+        }
+    }
 
-        try sut.saveConfig(config)
+    @Test
+    func `Loading throws when the config file is not valid JSON`() throws {
+        let (sut, fileSystem) = makeSUT(projectName: "TestProject", configFolderPath: "/Users/Home/.config/TestProject", configFileName: nil)
+        let folder = try fileSystem.createDirectory(at: sut.configFolderPath)
+        try folder.createFile(named: "\(sut.configFileName).json", contents: "not json")
 
-        // Walk the created directory chain
-        let configsDir = homeMock.subdirectories.first { $0.name == "configs" }
-        XCTAssertNotNil(configsDir)
-
-        let projectDir = configsDir?.subdirectories.first { $0.name == "TestProject" }
-        XCTAssertNotNil(projectDir)
-
-        if let mockProjectDir = projectDir as? MockDirectory {
-            XCTAssertTrue(mockProjectDir.containedFiles.contains("TestProject.json"))
-
-            let savedJSON = mockProjectDir.fileContents["TestProject.json"] ?? ""
-            let decoded = try JSONDecoder().decode(MockConfig.self, from: Data(savedJSON.utf8))
-            XCTAssertEqual(decoded, config)
-        } else {
-            XCTFail("Expected MockDirectory")
+        #expect(throws: (any Error).self) {
+            try sut.loadConfig()
         }
     }
 }
 
+// MARK: - Save
+extension NnConfigManagerTests {
+    @Test
+    func `Saving again replaces the previous config`() throws {
+        let updated = TestConfig(firstSetting: 2, secondSetting: "updated")
+        let sut = makeSUT(projectName: "TestProject", configFolderPath: "/Users/Home/.config/TestProject", configFileName: nil).sut
+        try sut.saveConfig(TestConfig(firstSetting: 1, secondSetting: "original"))
+
+        try sut.saveConfig(updated)
+
+        #expect(try sut.loadConfig() == updated)
+    }
+
+    @Test
+    func `Saved file name gains a json extension`() throws {
+        let (sut, fileSystem) = makeSUT(projectName: "TestProject", configFolderPath: "/Users/Home/.config/TestProject", configFileName: "Settings")
+
+        try sut.saveConfig(TestConfig(firstSetting: 1, secondSetting: "saved"))
+
+        let folder = try fileSystem.directory(at: sut.configFolderPath)
+        #expect(folder.containsFile(named: "Settings.json"))
+    }
+
+    @Test
+    func `File name already ending in json is not given a second extension`() throws {
+        let (sut, fileSystem) = makeSUT(projectName: "TestProject", configFolderPath: "/Users/Home/.config/TestProject", configFileName: "Settings.json")
+
+        try sut.saveConfig(TestConfig(firstSetting: 1, secondSetting: "saved"))
+
+        let folder = try fileSystem.directory(at: sut.configFolderPath)
+        #expect(folder.containsFile(named: "Settings.json"))
+    }
+}
+
+// MARK: - Nested Files
+extension NnConfigManagerTests {
+    @Test
+    func `Nested file is written at its nested path`() throws {
+        let contents = "nested contents"
+        let (sut, fileSystem) = makeSUT(projectName: "TestProject", configFolderPath: "/Users/Home/.config/TestProject", configFileName: nil)
+
+        try sut.saveNestedConfigFile(contents: contents, nestedFilePath: "Nested/File")
+
+        #expect(try fileSystem.readFile(at: sut.configFolderPath.appendingPathComponent("Nested/File")) == contents)
+    }
+
+    @Test
+    func `Nested file without folders is written into the config folder`() throws {
+        let contents = "nested contents"
+        let (sut, fileSystem) = makeSUT(projectName: "TestProject", configFolderPath: "/Users/Home/.config/TestProject", configFileName: nil)
+
+        try sut.saveNestedConfigFile(contents: contents, nestedFilePath: "File")
+
+        #expect(try fileSystem.readFile(at: sut.configFolderPath.appendingPathComponent("File")) == contents)
+    }
+
+    @Test
+    func `Leading slash in a nested path stays relative to the config folder`() throws {
+        let contents = "nested contents"
+        let (sut, fileSystem) = makeSUT(projectName: "TestProject", configFolderPath: "/Users/Home/.config/TestProject", configFileName: nil)
+
+        try sut.saveNestedConfigFile(contents: contents, nestedFilePath: "/Nested/File")
+
+        #expect(try fileSystem.readFile(at: sut.configFolderPath.appendingPathComponent("Nested/File")) == contents)
+    }
+
+    @Test
+    func `Deleted nested file is removed`() throws {
+        let (sut, fileSystem) = makeSUT(projectName: "TestProject", configFolderPath: "/Users/Home/.config/TestProject", configFileName: nil)
+        try sut.saveNestedConfigFile(contents: "nested contents", nestedFilePath: "Nested/File")
+
+        try sut.deletedNestedConfigFile(nestedFilePath: "Nested/File")
+
+        let nestedFolder = try fileSystem.directory(at: sut.configFolderPath.appendingPathComponent("Nested"))
+        #expect(!nestedFolder.containsFile(named: "File"))
+    }
+
+    @Test
+    func `Deleting a nested file does nothing when the config folder does not exist`() {
+        let sut = makeSUT(projectName: "TestProject", configFolderPath: "/Users/Home/.config/TestProject", configFileName: nil).sut
+
+        #expect(throws: Never.self) {
+            try sut.deletedNestedConfigFile(nestedFilePath: "Nested/File")
+        }
+    }
+
+    @Test
+    func `Deleting a nested file does nothing when its folder does not exist`() throws {
+        let (sut, fileSystem) = makeSUT(projectName: "TestProject", configFolderPath: "/Users/Home/.config/TestProject", configFileName: nil)
+        try fileSystem.createDirectory(at: sut.configFolderPath)
+
+        #expect(throws: Never.self) {
+            try sut.deletedNestedConfigFile(nestedFilePath: "Nested/File")
+        }
+    }
+}
+
+// MARK: - Nested File Text
+extension NnConfigManagerTests {
+    @Test
+    func `Absent text is appended on a new line`() throws {
+        let (sut, fileSystem) = makeSUT(projectName: "TestProject", configFolderPath: "/Users/Home/.config/TestProject", configFileName: nil)
+        try sut.saveNestedConfigFile(contents: "first", nestedFilePath: "Nested/File")
+
+        try sut.appendTextToNestedConfigFileIfNeeded(text: "second", nestedFilePath: "Nested/File", asNewLine: true)
+
+        #expect(try fileSystem.readFile(at: sut.configFolderPath.appendingPathComponent("Nested/File")) == "first\nsecond")
+    }
+
+    @Test
+    func `Absent text is appended without a line break when requested`() throws {
+        let (sut, fileSystem) = makeSUT(projectName: "TestProject", configFolderPath: "/Users/Home/.config/TestProject", configFileName: nil)
+        try sut.saveNestedConfigFile(contents: "first", nestedFilePath: "Nested/File")
+
+        try sut.appendTextToNestedConfigFileIfNeeded(text: "second", nestedFilePath: "Nested/File", asNewLine: false)
+
+        #expect(try fileSystem.readFile(at: sut.configFolderPath.appendingPathComponent("Nested/File")) == "firstsecond")
+    }
+
+    @Test
+    func `Text already present is not appended again`() throws {
+        let contents = "first\nsecond"
+        let (sut, fileSystem) = makeSUT(projectName: "TestProject", configFolderPath: "/Users/Home/.config/TestProject", configFileName: nil)
+        try sut.saveNestedConfigFile(contents: contents, nestedFilePath: "Nested/File")
+
+        try sut.appendTextToNestedConfigFileIfNeeded(text: "second", nestedFilePath: "Nested/File", asNewLine: true)
+
+        #expect(try fileSystem.readFile(at: sut.configFolderPath.appendingPathComponent("Nested/File")) == contents)
+    }
+
+    @Test
+    func `Appending to a missing nested file creates it with the text`() throws {
+        let text = "first"
+        let (sut, fileSystem) = makeSUT(projectName: "TestProject", configFolderPath: "/Users/Home/.config/TestProject", configFileName: nil)
+
+        try sut.appendTextToNestedConfigFileIfNeeded(text: text, nestedFilePath: "Nested/File", asNewLine: false)
+
+        #expect(try fileSystem.readFile(at: sut.configFolderPath.appendingPathComponent("Nested/File")) == text)
+    }
+
+    @Test
+    func `Matching line is removed from a nested file`() throws {
+        let (sut, fileSystem) = makeSUT(projectName: "TestProject", configFolderPath: "/Users/Home/.config/TestProject", configFileName: nil)
+        try sut.saveNestedConfigFile(contents: "first\nsecond\nthird", nestedFilePath: "Nested/File")
+
+        try sut.removeTextFromNestedConfigFile(text: "second", nestedFilePath: "Nested/File")
+
+        #expect(try fileSystem.readFile(at: sut.configFolderPath.appendingPathComponent("Nested/File")) == "first\nthird")
+    }
+
+    @Test
+    func `Surrounding whitespace in the text is ignored when removing a line`() throws {
+        let (sut, fileSystem) = makeSUT(projectName: "TestProject", configFolderPath: "/Users/Home/.config/TestProject", configFileName: nil)
+        try sut.saveNestedConfigFile(contents: "first\nsecond\nthird", nestedFilePath: "Nested/File")
+
+        try sut.removeTextFromNestedConfigFile(text: "  second\n", nestedFilePath: "Nested/File")
+
+        #expect(try fileSystem.readFile(at: sut.configFolderPath.appendingPathComponent("Nested/File")) == "first\nthird")
+    }
+
+    @Test
+    func `Partially matching line is kept when removing text`() throws {
+        let contents = "first\nsecond"
+        let (sut, fileSystem) = makeSUT(projectName: "TestProject", configFolderPath: "/Users/Home/.config/TestProject", configFileName: nil)
+        try sut.saveNestedConfigFile(contents: contents, nestedFilePath: "Nested/File")
+
+        try sut.removeTextFromNestedConfigFile(text: "sec", nestedFilePath: "Nested/File")
+
+        #expect(try fileSystem.readFile(at: sut.configFolderPath.appendingPathComponent("Nested/File")) == contents)
+    }
+
+    @Test
+    func `Removing text does nothing when the config folder does not exist`() {
+        let sut = makeSUT(projectName: "TestProject", configFolderPath: "/Users/Home/.config/TestProject", configFileName: nil).sut
+
+        #expect(throws: Never.self) {
+            try sut.removeTextFromNestedConfigFile(text: "first", nestedFilePath: "Nested/File")
+        }
+    }
+
+    @Test
+    func `Removing text does nothing when the nested folder does not exist`() throws {
+        let (sut, fileSystem) = makeSUT(projectName: "TestProject", configFolderPath: "/Users/Home/.config/TestProject", configFileName: nil)
+        try fileSystem.createDirectory(at: sut.configFolderPath)
+
+        #expect(throws: Never.self) {
+            try sut.removeTextFromNestedConfigFile(text: "first", nestedFilePath: "Nested/File")
+        }
+    }
+}
 
 // MARK: - SUT
-extension NnConfigManagerTests {
-    func makeSUT(type: ConfigType) -> NnConfigManager<MockConfig> {
-        return .init(
-            projectName: type.projectName,
-            configFolderPath: type.configFolderPath,
-            configFileName: type.configFileName
-        )
-    }
-
-    func makeConfig(firstSetting: Int = 0, secondSetting: String = "something to remember") -> MockConfig {
-        return .init(firstSetting: firstSetting, secondSetting: secondSetting)
-    }
-}
-
-
-// MARK: - Helpers
-extension NnConfigManagerTests {
-    class MockConfig: Codable, Equatable {
-        static func == (lhs: NnConfigManagerTests.MockConfig, rhs: NnConfigManagerTests.MockConfig) -> Bool {
-            return lhs.firstSetting == rhs.firstSetting && lhs.secondSetting == rhs.secondSetting
-        }
-
-        var firstSetting: Int
-        var secondSetting: String
-
-        init(firstSetting: Int = 0, secondSetting: String = "something to remember") {
-            self.firstSetting = firstSetting
-            self.secondSetting = secondSetting
-        }
-    }
-
-    enum ConfigType: CaseIterable {
-        case defaultConfig, customConfig
-
-        var projectName: String {
-            return "\(self == .defaultConfig ? "Default" : "Custom")NnConfigKitTestProject"
-        }
-
-        var configFolderPath: String? {
-            return self == .defaultConfig ? nil : "\(DefaultDirectory.temporary.path).testConfig/NnConfigList/\(projectName)"
-        }
-
-        var configFileName: String? {
-            return self == .defaultConfig ? nil : "\(projectName)-custom.json"
-        }
-    }
-}
-
-
-// MARK: - Assertion Helpers
-extension NnConfigManagerTests {
-    func runSaveLoadUpdateTest(for config: MockConfig, updatedConfig: MockConfig, configType: ConfigType) throws {
-        let sut = makeSUT(type: configType)
-
-        try sut.saveConfig(config)
-
-        let loadedConfig = try sut.loadConfig()
-
-        XCTAssertEqual(config, loadedConfig)
-        XCTAssertNotEqual(config, updatedConfig)
-
-        try sut.saveConfig(updatedConfig)
-
-        let loadedUpdatedConfig = try sut.loadConfig()
-        XCTAssertEqual(updatedConfig, loadedUpdatedConfig)
-        XCTAssertNotEqual(loadedConfig, loadedUpdatedConfig)
-    }
-}
-
-
-// MARK: - Helper Methods
 private extension NnConfigManagerTests {
-    func makeNestedContent() -> String {
-        return sampleTextLines.joined(separator: "\n")
-    }
+    func makeSUT(projectName: String, configFolderPath: String?, configFileName: String?) -> (sut: NnConfigManager<TestConfig>, fileSystem: MockFileSystem) {
+        let homeDirectory = MockDirectory(
+            path: "/Users/Home",
+            subdirectories: [],
+            containedFiles: [],
+            throwError: false,
+            shouldThrowOnSubdirectory: false,
+            autoCreateSubdirectories: false,
+            ext: nil
+        )
+        let currentDirectory = MockDirectory(
+            path: "/Users/Home/Current",
+            subdirectories: [],
+            containedFiles: [],
+            throwError: false,
+            shouldThrowOnSubdirectory: false,
+            autoCreateSubdirectories: false,
+            ext: nil
+        )
+        let fileSystem = MockFileSystem(
+            homeDirectory: homeDirectory,
+            currentDirectory: currentDirectory,
+            directoryToLoad: nil,
+            directoryMap: nil,
+            desktop: nil,
+            fileContentsToRead: [:],
+            throwError: false
+        )
+        let sut = NnConfigManager<TestConfig>(
+            projectName: projectName,
+            configFolderPath: configFolderPath,
+            configFileName: configFileName,
+            fileSystem: fileSystem
+        )
 
-    func saveConfig(_ config: MockConfig, configType: ConfigType, file: StaticString = #filePath, line: UInt = #line) throws {
-        try makeSUT(type: configType).saveConfig(config)
-    }
-
-    func cleanConfigFolders() throws {
-        try deleteExistingFolder(path: ConfigType.customConfig.configFolderPath!)
-        try deleteExistingFolder(path: "\(DEFAULT_CONFIGLIST_FOLDER_PATH)/\(ConfigType.defaultConfig.projectName)")
-    }
-
-    func deleteExistingFolder(path: String) throws {
-        let fileSystem = DefaultFileSystem()
-        if let folder = try? fileSystem.directory(at: path) {
-            try folder.delete()
-        }
+        return (sut, fileSystem)
     }
 }

@@ -5,8 +5,8 @@
 //  Created by Nikolai Nobadi on 6/19/24.
 //
 
-import Foundation
 import NnFileKit
+import Foundation
 
 /// The default folder path for configuration lists.
 public let DEFAULT_CONFIGLIST_FOLDER_PATH = "\(DefaultFileSystem().homeDirectory.path).config/NnConfigList"
@@ -32,7 +32,6 @@ public struct NnConfigManager<Config: Codable>: Sendable {
     }
 }
 
-
 // MARK: - Load
 public extension NnConfigManager {
     /// Loads the configuration from the configuration file.
@@ -47,21 +46,19 @@ public extension NnConfigManager {
     }
 }
 
-
 // MARK: - Save
 public extension NnConfigManager {
     /// Saves the configuration to the configuration file.
     /// - Parameter config: The configuration object to be saved.
     /// - Throws: An error if the configuration file cannot be written.
     func saveConfig(_ config: Config) throws {
-        let configDir = try resolveOrCreateDirectory(at: configFolderPath)
+        let configDir = try fileSystem.createDirectory(at: configFolderPath)
         let data = try JSONEncoder.prettyOutput().encode(config)
         let jsonString = String(data: data, encoding: .utf8) ?? ""
 
         try configDir.createFile(named: configFileName.json, contents: jsonString)
     }
 }
-
 
 // MARK: - NestedConfigFiles
 public extension NnConfigManager {
@@ -71,9 +68,9 @@ public extension NnConfigManager {
     ///   - nestedFilePath: The path to the nested file.
     /// - Throws: An error if the nested file cannot be created or written.
     func saveNestedConfigFile(contents: String, nestedFilePath: String) throws {
-        let configDir = try resolveOrCreateDirectory(at: configFolderPath)
-        let (dirComponents, fileName) = parseNestedPath(nestedFilePath)
-        let targetDir = try walkOrCreateSubdirectories(from: configDir, components: dirComponents)
+        let configDir = try fileSystem.createDirectory(at: configFolderPath)
+        let (directoryPath, fileName) = parseNestedPath(nestedFilePath)
+        let targetDir = try configDir.createSubdirectory(atRelativePath: directoryPath)
 
         try targetDir.createFile(named: fileName, contents: contents)
     }
@@ -84,13 +81,9 @@ public extension NnConfigManager {
     func deletedNestedConfigFile(nestedFilePath: String) throws {
         guard let configDir = try? fileSystem.directory(at: configFolderPath) else { return }
 
-        let (dirComponents, fileName) = parseNestedPath(nestedFilePath)
-        var current: any Directory = configDir
+        let (directoryPath, fileName) = parseNestedPath(nestedFilePath)
 
-        for component in dirComponents {
-            guard let sub = try? current.subdirectory(named: component) else { return }
-            current = sub
-        }
+        guard let current = try? configDir.subdirectory(atRelativePath: directoryPath) else { return }
 
         if current.containsFile(named: fileName) {
             try current.deleteFile(named: fileName)
@@ -104,9 +97,9 @@ public extension NnConfigManager {
     ///   - asNewLine: Whether to append the text as a new line.
     /// - Throws: An error if the nested file cannot be created or written.
     func appendTextToNestedConfigFileIfNeeded(text: String, nestedFilePath: String, asNewLine: Bool = true) throws {
-        let configDir = try resolveOrCreateDirectory(at: configFolderPath)
-        let (dirComponents, fileName) = parseNestedPath(nestedFilePath)
-        let targetDir = try walkOrCreateSubdirectories(from: configDir, components: dirComponents)
+        let configDir = try fileSystem.createDirectory(at: configFolderPath)
+        let (directoryPath, fileName) = parseNestedPath(nestedFilePath)
+        let targetDir = try configDir.createSubdirectory(atRelativePath: directoryPath)
 
         if !targetDir.containsFile(named: fileName) {
             try targetDir.createFile(named: fileName, contents: "")
@@ -123,71 +116,24 @@ public extension NnConfigManager {
     func removeTextFromNestedConfigFile(text: String, nestedFilePath: String) throws {
         guard let configDir = try? fileSystem.directory(at: configFolderPath) else { return }
 
-        let (dirComponents, fileName) = parseNestedPath(nestedFilePath)
-        var current: any Directory = configDir
+        let (directoryPath, fileName) = parseNestedPath(nestedFilePath)
 
-        for component in dirComponents {
-            guard let sub = try? current.subdirectory(named: component) else { return }
-            current = sub
-        }
+        guard let current = try? configDir.subdirectory(atRelativePath: directoryPath) else { return }
 
         try removeTextFromFile(text: text, inDirectory: current, fileName: fileName)
     }
 }
 
-
 // MARK: - Private Methods
 private extension NnConfigManager {
-    func resolveOrCreateDirectory(at path: String) throws -> any Directory {
-        if let existing = try? fileSystem.directory(at: path) {
-            return existing
-        }
-
-        let homePath = fileSystem.homeDirectory.path
-
-        if path.hasPrefix(homePath) {
-            let relativePath = String(path.dropFirst(homePath.count))
-            let components = relativePath.split(separator: "/").map(String.init)
-            var current: any Directory = fileSystem.homeDirectory
-
-            for component in components {
-                current = try current.createSubfolderIfNeeded(named: component)
-            }
-
-            return current
-        }
-
-        // For absolute paths not under home, walk from root
-        let components = path.split(separator: "/").map(String.init)
-        guard let firstComponent = components.first else {
-            throw FileSystemError.directoryNotFound(path)
-        }
-
-        var current = try fileSystem.directory(at: "/\(firstComponent)")
-
-        for component in components.dropFirst() {
-            current = try current.createSubfolderIfNeeded(named: component)
-        }
-
-        return current
-    }
-
-    func parseNestedPath(_ nestedFilePath: String) -> (directoryComponents: [String], fileName: String) {
+    /// Splits a nested file path into its relative directory path and file name.
+    /// Components are rejoined, so a leading `/` in `nestedFilePath` never reaches a relative-path API.
+    func parseNestedPath(_ nestedFilePath: String) -> (directoryPath: String, fileName: String) {
         let components = nestedFilePath.split(separator: "/").map(String.init)
         let fileName = components.last ?? nestedFilePath
-        let directoryComponents = Array(components.dropLast())
+        let directoryPath = components.dropLast().joined(separator: "/")
 
-        return (directoryComponents, fileName)
-    }
-
-    func walkOrCreateSubdirectories(from directory: any Directory, components: [String]) throws -> any Directory {
-        var current: any Directory = directory
-
-        for component in components {
-            current = try current.createSubfolderIfNeeded(named: component)
-        }
-
-        return current
+        return (directoryPath, fileName)
     }
 
     func appendTextToFileIfNeeded(text: String, inDirectory directory: any Directory, fileName: String, asNewLine: Bool) throws {
@@ -213,7 +159,6 @@ private extension NnConfigManager {
         try directory.createFile(named: fileName, contents: updatedContents)
     }
 }
-
 
 // MARK: - Extension Dependencies
 extension String {

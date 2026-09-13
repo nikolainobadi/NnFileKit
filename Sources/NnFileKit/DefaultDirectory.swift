@@ -20,7 +20,6 @@ public struct DefaultDirectory: Directory, Sendable {
     }
 }
 
-
 // MARK: - Static Helpers
 public extension DefaultDirectory {
     /// A directory pointing to the system's temporary directory.
@@ -73,7 +72,20 @@ extension DefaultDirectory {
         try FileManager.default.moveItem(atPath: path, toPath: destinationPath)
     }
 
+    @discardableResult
+    public func copy(to parent: any Directory, overwrite: Bool) throws -> any Directory {
+        let destinationPath = (parent.path as NSString).appendingPathComponent(name)
+
+        try performCopy(from: path, to: destinationPath, overwrite: overwrite)
+
+        return DefaultDirectory(path: destinationPath)
+    }
+
     public func containsFile(named name: String) -> Bool {
+        guard isSingleComponent(name) else {
+            return false
+        }
+
         let filePath = (path as NSString).appendingPathComponent(name)
         var isDir: ObjCBool = false
         
@@ -81,6 +93,8 @@ extension DefaultDirectory {
     }
 
     public func subdirectory(named name: String) throws -> any Directory {
+        try validateName(name)
+
         let subdirPath = (path as NSString).appendingPathComponent(name)
         var isDir: ObjCBool = false
 
@@ -92,6 +106,8 @@ extension DefaultDirectory {
     }
 
     public func createSubdirectory(named name: String) throws -> any Directory {
+        try validateName(name)
+
         let subdirPath = (path as NSString).appendingPathComponent(name)
         try FileManager.default.createDirectory(atPath: subdirPath, withIntermediateDirectories: false)
         
@@ -99,6 +115,8 @@ extension DefaultDirectory {
     }
 
     public func createSubfolderIfNeeded(named name: String) throws -> any Directory {
+        try validateName(name)
+
         let subdirPath = (path as NSString).appendingPathComponent(name)
         var isDir: ObjCBool = false
 
@@ -112,19 +130,51 @@ extension DefaultDirectory {
     }
 
     public func deleteFile(named name: String) throws {
+        try validateName(name)
+
         let filePath = (path as NSString).appendingPathComponent(name)
         try FileManager.default.removeItem(atPath: filePath)
     }
 
     @discardableResult
     public func createFile(named name: String, contents: String) throws -> String {
+        try validateName(name)
+
         let filePath = (path as NSString).appendingPathComponent(name)
         try contents.write(toFile: filePath, atomically: true, encoding: .utf8)
         
         return filePath
     }
 
+    @discardableResult
+    public func copyFile(named name: String, to destination: any Directory, overwrite: Bool) throws -> String {
+        try validateName(name)
+
+        let sourcePath = (path as NSString).appendingPathComponent(name)
+        let destinationPath = (destination.path as NSString).appendingPathComponent(name)
+
+        try performCopy(from: sourcePath, to: destinationPath, overwrite: overwrite)
+
+        return destinationPath
+    }
+
+    public func fileContentsEqual(named name: String, in other: any Directory) throws -> Bool {
+        try validateName(name)
+
+        let filePath = (path as NSString).appendingPathComponent(name)
+
+        guard containsFile(named: name) else {
+            throw FileSystemError.fileNotFound(filePath)
+        }
+
+        let otherPath = (other.path as NSString).appendingPathComponent(name)
+
+        return FileManager.default.contentsEqual(atPath: filePath, andPath: otherPath)
+    }
+
     public func readFile(named name: String) throws -> String {
+        try validateName(name)
+
         let filePath = (path as NSString).appendingPathComponent(name)
 
         guard FileManager.default.fileExists(atPath: filePath) else {
@@ -177,5 +227,32 @@ extension DefaultDirectory {
                 return fullPath
             }
         }
+    }
+}
+
+// MARK: - Private Methods
+private extension DefaultDirectory {
+    /// Returns whether `name` is a single path component.
+    func isSingleComponent(_ name: String) -> Bool {
+        return !name.contains("/")
+    }
+
+    /// Throws ``FileSystemError/invalidName(_:)`` when `name` is not a single path component.
+    func validateName(_ name: String) throws {
+        guard isSingleComponent(name) else {
+            throw FileSystemError.invalidName(name)
+        }
+    }
+
+    /// Copies an item, removing an existing destination first when `overwrite` is `true`.
+    /// The existence check matters: `removeItem` throws when the path is absent.
+    func performCopy(from sourcePath: String, to destinationPath: String, overwrite: Bool) throws {
+        let fm = FileManager.default
+
+        if overwrite, fm.fileExists(atPath: destinationPath) {
+            try fm.removeItem(atPath: destinationPath)
+        }
+
+        try fm.copyItem(atPath: sourcePath, toPath: destinationPath)
     }
 }

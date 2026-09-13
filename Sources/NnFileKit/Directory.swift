@@ -6,6 +6,10 @@
 //
 
 /// Represents a directory on disk and provides operations for managing its files and subdirectories.
+///
+/// Every `named:` parameter is a single path component. Throwing methods reject a name containing `/`
+/// with ``FileSystemError/invalidName(_:)``; predicates return `false`. Use the `atRelativePath:`
+/// methods to address nested subdirectories.
 public protocol Directory {
     /// The absolute path of this directory.
     var path: String { get }
@@ -25,6 +29,16 @@ public protocol Directory {
     /// Moves this directory into the specified parent directory.
     /// - Parameter parent: The destination parent directory.
     func move(to parent: any Directory) throws
+
+    /// Copies this directory, as a tree, into the specified parent directory under its own name.
+    /// Preserves binary content, nested structure, and symlinks. The parent must already exist.
+    /// `overwrite` is not atomic — the existing destination is removed before the copy begins.
+    /// - Parameters:
+    ///   - parent: The destination parent directory.
+    ///   - overwrite: Pass `true` to replace an existing destination; `false` throws instead.
+    /// - Returns: The newly created copy.
+    @discardableResult
+    func copy(to parent: any Directory, overwrite: Bool) throws -> any Directory
 
     /// Returns whether a file with the given name exists in this directory.
     /// - Parameter name: The file name to check.
@@ -59,6 +73,26 @@ public protocol Directory {
     @discardableResult
     func createFile(named name: String, contents: String) throws -> String
 
+    /// Copies a file from this directory into another directory under the same name.
+    /// Bytes are relocated without decoding, so binary content is preserved. The destination must
+    /// already exist. `overwrite` is not atomic — the existing file is removed before the copy.
+    /// - Parameters:
+    ///   - name: The name of the file to copy.
+    ///   - destination: The directory to copy the file into.
+    ///   - overwrite: Pass `true` to replace an existing file; `false` throws instead.
+    /// - Returns: The absolute path of the copied file.
+    @discardableResult
+    func copyFile(named name: String, to destination: any Directory, overwrite: Bool) throws -> String
+
+    /// Returns whether a file in this directory has the same bytes as the file with the same name in another directory.
+    /// Bytes are compared without decoding, so binary content is supported.
+    /// - Parameters:
+    ///   - name: The name of the file to compare.
+    ///   - other: The directory holding the file to compare against.
+    /// - Returns: `true` if the contents match; `false` if they differ or `other` has no file with that name.
+    /// - Throws: ``FileSystemError/fileNotFound(_:)`` if this directory has no file with that name.
+    func fileContentsEqual(named name: String, in other: any Directory) throws -> Bool
+
     /// Reads the contents of a file as a UTF-8 string.
     /// - Parameter name: The file name.
     /// - Returns: The file's contents.
@@ -72,7 +106,6 @@ public protocol Directory {
     func findFiles(withExtension extension: String?, recursive: Bool) throws -> [String]
 }
 
-
 // MARK: - Convenience
 public extension Directory {
     /// Returns whether a subdirectory with the given name exists.
@@ -80,5 +113,46 @@ public extension Directory {
     /// - Returns: `true` if the subdirectory exists; otherwise `false`.
     func containsSubdirectory(named name: String) -> Bool {
         return (try? subdirectory(named: name)) != nil
+    }
+
+    /// Returns the subdirectory at the given relative path.
+    /// - Parameter path: A relative path such as `"a/b"`. Repeated separators collapse; an empty path returns this directory.
+    /// - Returns: The subdirectory at `path`.
+    /// - Throws: ``FileSystemError/invalidName(_:)`` if `path` begins with `/`, or an error if any component is missing.
+    func subdirectory(atRelativePath path: String) throws -> any Directory {
+        var current: any Directory = self
+
+        for component in try relativePathComponents(path) {
+            current = try current.subdirectory(named: component)
+        }
+
+        return current
+    }
+
+    /// Returns the subdirectory at the given relative path, creating it and any missing intermediates.
+    /// - Parameter path: A relative path such as `"a/b"`. Repeated separators collapse; an empty path returns this directory.
+    /// - Returns: The existing or newly created subdirectory.
+    /// - Throws: ``FileSystemError/invalidName(_:)`` if `path` begins with `/`, or an error if a component cannot be created.
+    @discardableResult
+    func createSubdirectory(atRelativePath path: String) throws -> any Directory {
+        var current: any Directory = self
+
+        for component in try relativePathComponents(path) {
+            current = try current.createSubfolderIfNeeded(named: component)
+        }
+
+        return current
+    }
+}
+
+// MARK: - Private Methods
+private extension Directory {
+    /// Splits a relative path into components, rejecting absolute paths.
+    func relativePathComponents(_ path: String) throws -> [String] {
+        guard !path.hasPrefix("/") else {
+            throw FileSystemError.invalidName(path)
+        }
+
+        return path.split(separator: "/").map(String.init)
     }
 }

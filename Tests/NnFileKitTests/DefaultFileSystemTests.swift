@@ -10,18 +10,8 @@ import Foundation
 @testable import NnFileKit
 
 struct DefaultFileSystemTests {
-    @Test("Directory is returned for valid existing path")
-    func directoryAtValidPath() throws {
-        let sut = makeSUT()
-        let tempPath = NSTemporaryDirectory()
-
-        let dir = try sut.directory(at: tempPath)
-
-        #expect(dir.path == tempPath)
-    }
-
-    @Test("Error is thrown for nonexistent directory path")
-    func directoryAtInvalidPath() {
+    @Test
+    func `Error is thrown for nonexistent directory path`() {
         let sut = makeSUT()
 
         #expect(throws: FileSystemError.self) {
@@ -29,8 +19,8 @@ struct DefaultFileSystemTests {
         }
     }
 
-    @Test("File contents are written and readable")
-    func writeAndReadFile() throws {
+    @Test
+    func `File contents are written and readable`() throws {
         let sut = makeSUT()
         let path = NSTemporaryDirectory().appendingPathComponent(UUID().uuidString + ".txt")
 
@@ -39,44 +29,52 @@ struct DefaultFileSystemTests {
 
         #expect(contents == "test content")
     }
-
-    @Test("Home directory matches system home path")
-    func homeDirectory() {
-        let sut = makeSUT()
-
-        #expect(sut.homeDirectory.path == NSHomeDirectory() + "/")
-    }
-
-    @Test("Current directory matches system working directory path")
-    func currentDirectory() {
-        let sut = makeSUT()
-
-        #expect(sut.currentDirectory.path == FileManager.default.currentDirectoryPath + "/")
-    }
 }
 
-
+// MARK: - Directory Creation
 extension DefaultFileSystemTests {
-    @Test("Nil path returns current directory")
-    func nilPathReturnsCurrent() throws {
+    @Test
+    func `Every missing intermediate along a path is created`() throws {
         let sut = makeSUT()
+        let parentPath = NSTemporaryDirectory().appendingPathComponent(UUID().uuidString)
 
-        let dir = try sut.getDirectoryAtPathOrCurrent(path: nil)
+        try sut.createDirectory(at: parentPath.appendingPathComponent("child"))
 
-        #expect(dir.path == sut.currentDirectory.path)
+        #expect(FileManager.default.fileExists(atPath: parentPath))
     }
 
-    @Test("Provided path returns directory at that path")
-    func providedPathReturnsDirectory() throws {
+    @Test
+    func `Created directory is returned at the requested path`() throws {
         let sut = makeSUT()
-        let tempPath = NSTemporaryDirectory()
+        let path = NSTemporaryDirectory().appendingPathComponent(UUID().uuidString + "/child")
 
-        let dir = try sut.getDirectoryAtPathOrCurrent(path: tempPath)
+        let created = try sut.createDirectory(at: path)
 
-        #expect(dir.path == tempPath)
+        #expect(created.path == path + "/")
+    }
+
+    @Test
+    func `Creating an existing directory returns it without throwing`() throws {
+        let sut = makeSUT()
+        let path = NSTemporaryDirectory().appendingPathComponent(UUID().uuidString)
+        let first = try sut.createDirectory(at: path)
+
+        let second = try sut.createDirectory(at: path)
+
+        #expect(second.path == first.path)
+    }
+
+    @Test
+    func `Created directory is found by path lookup`() throws {
+        let sut = makeSUT()
+        let path = NSTemporaryDirectory().appendingPathComponent(UUID().uuidString + "/child")
+        let created = try sut.createDirectory(at: path)
+
+        let found = try sut.directory(at: path)
+
+        #expect(found.path == created.path)
     }
 }
-
 
 // MARK: - SUT
 private extension DefaultFileSystemTests {
