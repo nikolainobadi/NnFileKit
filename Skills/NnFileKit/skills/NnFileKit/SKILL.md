@@ -1,6 +1,6 @@
 ---
 name: NnFileKit
-description: NnFileKit Swift API reference for file system access. USE WHEN importing NnFileKit, reading or writing files from Swift, navigating directories, using the FileSystem or Directory protocols, DefaultFileSystem, DefaultDirectory, moveToTrash, findFiles, file system error handling, or MockFileSystem / MockDirectory in tests.
+description: NnFileKit Swift API reference for file system access. USE WHEN importing NnFileKit, reading or writing files from Swift, navigating directories, creating nested directories, copying files or directory trees, comparing file contents, using the FileSystem or Directory protocols, DefaultFileSystem, DefaultDirectory, createDirectory, moveToTrash, findFiles, file system error handling, or MockFileSystem / MockDirectory in tests.
 user-invocable: true
 ---
 
@@ -8,7 +8,7 @@ user-invocable: true
 
 Lightweight Swift package for file system access with a protocol-based, fully mockable design.
 
-**Dependency:** `https://github.com/nikolainobadi/NnFileKit.git` (from `0.7.0`)
+**Dependency:** `https://github.com/nikolainobadi/NnFileKit.git` (from `0.8.0`)
 **Platforms:** macOS | **Swift:** 6.0
 
 > This skill lives in the package repo at `Skills/NnFileKit/` and ships pinned to a release tag, so it describes the API as of that release.
@@ -23,16 +23,17 @@ Lightweight Swift package for file system access with a protocol-based, fully mo
 ## Quick Reference
 
 ### Production
-- **FileSystem** — Top-level protocol: `homeDirectory`, `currentDirectory`, `desktopDirectory()`, `directory(at:)`, `readFile(at:)`, `writeFile(at:contents:)`, `moveToTrash(at:)`
-- **Directory** — Per-directory protocol: `path`/`name`/`extension`/`subdirectories`, plus `createFile`, `readFile(named:)`, `createSubdirectory`, `createSubfolderIfNeeded`, `findFiles(withExtension:recursive:)`, `move(to:)`, `delete()`
+- **FileSystem** — Top-level protocol: `homeDirectory`, `currentDirectory`, `desktopDirectory()`, `directory(at:)`, `createDirectory(at:)` (get-or-create with intermediates), `readFile(at:)`, `writeFile(at:contents:)`, `moveToTrash(at:)`
+- **Directory** — Per-directory protocol: `path`/`name`/`extension`/`subdirectories`, plus `createFile`, `readFile(named:)`, `createSubdirectory`, `createSubfolderIfNeeded`, `findFiles(withExtension:recursive:)`, `copy(to:overwrite:)`, `copyFile(named:to:overwrite:)`, `fileContentsEqual(named:in:)`, `move(to:)`, `delete()`
+- **Nested paths** — `named:` takes **one path component only** (`/` throws `FileSystemError.invalidName`); use `subdirectory(atRelativePath:)` / `createSubdirectory(atRelativePath:)` for `"a/b"`
 - **DefaultFileSystem** — `FileManager`-backed production implementation (`struct`, `Sendable`); `init(fileManager: .default)`
 - **DefaultDirectory** — `FileManager`-backed directory (`struct`, `Sendable`); normalizes paths with a trailing slash; static `.temporary` / `.home`
-- **FileSystemError** — `enum` with `.directoryNotFound(String)` / `.fileNotFound(String)`
+- **FileSystemError** — `enum` with `.directoryNotFound(String)` / `.fileNotFound(String)` / `.invalidName(String)`
 - `FileSystem` is the absolute-path entry point; `Directory` is the working handle you navigate from there
 
 ### Testing
-- **MockFileSystem** — `final class` conforming to `FileSystem`; in-memory, records `capturedPaths`, `pathToMoveToTrash`, `writtenFilePath` / `writtenFileContents`; resolves directories via `directoryMap` / `directoryToLoad` and reads via `fileContentsToRead`
-- **MockDirectory** — `final class` conforming to `Directory`; in-memory `containedFiles` / `fileContents`, records `movedToParents` / `deleteCallCount`; `subdirectory(named:)` throws for unknown names unless `autoCreateSubdirectories: true`
+- **MockFileSystem** — `final class` conforming to `FileSystem`; in-memory, records `capturedPaths`, `pathToMoveToTrash`, `writtenFilePath` / `writtenFileContents`; resolves directories via `directoryMap` → home/root tree → `directoryToLoad`, and reads via `fileContentsToRead`; `createDirectory(at:)` builds the chain in memory
+- **MockDirectory** — `final class` conforming to `Directory`; in-memory `containedFiles` / `fileContents`, records `movedToParents` / `copiedToParents` / `copiedFiles` / `deleteCallCount`; `subdirectory(named:)` throws for unknown names unless `autoCreateSubdirectories: true`; `createSubdirectory(named:)` throws if the name already exists
 - Both mocks take `throwError: true` to fail every throwing operation at once
 
 ### Sibling product (not covered here)
@@ -43,6 +44,9 @@ Lightweight Swift package for file system access with a protocol-based, fully mo
 - "How do I read a file at an absolute path?" -> Loads ApiReference.md
 - "What's the difference between FileSystem and Directory?" -> Loads ApiReference.md
 - "How do I find all `.swift` files in a folder recursively?" -> Loads ApiReference.md
+- "How do I create `a/b/c` inside a directory?" -> Loads ApiReference.md
+- "How do I copy a file or folder, or check if two files match?" -> Loads ApiReference.md
+- "How do I assert a copy happened in a test?" -> Loads TestingReference.md
 - "How do I mock the file system in tests?" -> Loads TestingReference.md
 - "How do I assert a file was written without touching disk?" -> Loads TestingReference.md
 - "How do I test what happens when a file write fails?" -> Loads TestingReference.md

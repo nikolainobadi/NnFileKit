@@ -8,9 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 swift build
 swift test
 
-# Single suite / single test (swift-testing suites are struct names, XCTest classes are class names)
+# Single suite (swift-testing suites are struct names)
 swift test --filter DefaultDirectoryTests
-swift test --filter MockDirectoryTests/pathAndName
+swift test --filter MockDirectoryTests
 swift test --filter NnConfigManagerTests
 ```
 
@@ -20,7 +20,7 @@ The checked-in `.build` directory was produced at a different absolute path (`~/
 
 Three library products from one package, layered strictly:
 
-- **NnFileKit** — the protocol layer. `FileSystem` (top-level entry: home/current/desktop directories, path→directory lookup, whole-path read/write, trash) and `Directory` (per-directory: files, subdirectories, search). `DefaultFileSystem` / `DefaultDirectory` are the `FileManager`-backed implementations; both are `Sendable` structs.
+- **NnFileKit** — the protocol layer. `FileSystem` handles top-level directory lookup/creation, whole-path read/write, and trash; `Directory` handles files, subdirectories and relative paths, search, copying, and content comparison. `DefaultFileSystem` / `DefaultDirectory` are the `FileManager`-backed implementations; both are `Sendable` structs.
 - **NnConfigKit** — depends on NnFileKit. `NnConfigManager<Config: Codable>` reads/writes a single JSON file plus arbitrary nested files under a config folder. It talks *only* through the `FileSystem`/`Directory` protocols, never `FileManager` directly — that's what makes it testable, so keep new code in this module on the protocol side of the line.
 - **NnFileTesting** — depends on NnFileKit. Ships `MockFileSystem` / `MockDirectory` as a real product so downstream packages' test targets can import them. These are `final class` (mutable recorded state) while the defaults are structs.
 
@@ -28,18 +28,20 @@ Key invariants to preserve when touching either implementation pair:
 
 - `DefaultDirectory` normalizes `path` to always end in `/`; `MockDirectory` stores the path verbatim. Tests assert on this difference.
 - Both `Directory` implementations must stay behaviorally aligned — `MockDirectory` re-implements `findFiles(withExtension:recursive:)`, `createSubfolderIfNeeded`, etc. in memory. A change to one usually needs the matching change to the other, plus its mirror test file (`Default*Tests.swift` ↔ `Mock*Tests.swift`).
+- Every `Directory` API taking `named:` accepts one path component only; use `subdirectory(atRelativePath:)` or `createSubdirectory(atRelativePath:)` for nested paths. Throwing operations reject `/` with `FileSystemError.invalidName`; predicates return `false`.
 - `MockDirectory(autoCreateSubdirectories:)` defaults to `false`, so `subdirectory(named:)` throws for unknown names — which keeps `containsSubdirectory(named:)` honest. Pass `true` when a test wants lookups to always succeed.
 - Both mocks take `throwError:` to fail every throwing operation at once; `MockDirectory` also has the narrower `shouldThrowOnSubdirectory:`.
-- `MockFileSystem.directory(at:)` resolves through `directoryMap` first, then `directoryToLoad`, then throws; it records every requested path in `capturedPaths`. `readFile(at:)` checks `fileContentsToRead` first, then falls back to the containing directory, then throws `FileSystemError.fileNotFound`.
+- `MockDirectory` records directory copies in `copiedToParents` and file copies in `copiedFiles`; successful copies also populate a `MockDirectory` destination.
+- `MockFileSystem.directory(at:)` resolves through `directoryMap`, then its home or root tree, then `directoryToLoad`, and finally throws; lookup and creation record requested paths in `capturedPaths`. `readFile(at:)` checks `fileContentsToRead` first, then falls back to the containing directory, then throws `FileSystemError.fileNotFound`.
 - `MockFileSystem.writeFile(at:contents:)` always records into `writtenFilePath`/`writtenFileContents`, and additionally mutates the containing `MockDirectory` when one is configured.
-- `NnConfigManager.resolveOrCreateDirectory` creates missing folders by walking components from `homeDirectory` when the path is under home, otherwise from `/`. Mock directory trees must be reachable that way, not just present in `directoryMap`.
+- `NnConfigManager` creates its config folder through `FileSystem.createDirectory(at:)` and traverses nested config paths with the `Directory` relative-path helpers. A leading `/` in a nested file path is stripped into relative components.
 - Config paths default to `DEFAULT_CONFIGLIST_FOLDER_PATH/<projectName>` (`~/.config/NnConfigList/…`), and `configFileName` gets `.json` appended via the private `String.json` helper.
 
 ## Testing conventions
 
 - Both test targets use swift-testing (`@Test`, `#expect`) with `struct` suites, running in parallel with no `.serialized`.
 - Every suite ends with a `// MARK: - SUT` private extension exposing `makeSUT(...)`; tests never construct types inline.
-- `@Test` descriptions are full sentences describing behavior ("Recursive search includes files in subdirectories"), not restatements of the function name.
+- Test function names are backtick-escaped full sentences describing behavior (``func `Recursive search includes files in subdirectories`()``), not restatements of the API name.
 - `DefaultDirectory`/`DefaultFileSystem` tests hit the real file system inside `NSTemporaryDirectory()/UUID().uuidString`.
 - `NnConfigManagerTests` runs against `MockFileSystem`; `NnConfigManagerIntegrationTests` runs against `DefaultFileSystem` with a unique temp config folder per test. Nothing writes to the real `~/.config/NnConfigList`. Keep every test on its own path — a fixed shared path is what would force `.serialized` back in.
 

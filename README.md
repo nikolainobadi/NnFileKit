@@ -11,8 +11,8 @@ A lightweight Swift package providing protocol-based abstractions for file syste
 ## Features
 
 - **Protocol-driven design** — `FileSystem` and `Directory` protocols abstract all file operations
-- **Full directory management** — create, move, delete, and traverse directories
-- **File operations** — read, write, create, delete, and search files by extension
+- **Full directory management** — create nested paths, copy, move, delete, and traverse directories
+- **File operations** — read, write, create, copy, compare, delete, and search files by extension
 - **Recursive file search** — find files with optional extension filtering across nested directories
 - **Desktop and home directory access** — convenient accessors for common locations
 - **Trash support** — move items to trash instead of permanent deletion
@@ -34,7 +34,7 @@ A lightweight Swift package providing protocol-based abstractions for file syste
 Add the package to your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/nikolainobadi/NnFileKit.git", from: "0.7.0")
+.package(url: "https://github.com/nikolainobadi/NnFileKit.git", from: "0.8.0")
 ```
 
 Then include the libraries you need in your target:
@@ -73,6 +73,7 @@ let fileSystem = DefaultFileSystem()
 let home = fileSystem.homeDirectory
 let desktop = try fileSystem.desktopDirectory()
 let projectDir = try fileSystem.directory(at: "/path/to/project")
+let outputDir = try fileSystem.createDirectory(at: "/path/to/project/build/output")
 
 // Read and write files
 let contents = try fileSystem.readFile(at: "/path/to/file.txt")
@@ -90,11 +91,16 @@ let dir = DefaultDirectory(path: "/path/to/directory")
 // File operations
 try dir.createFile(named: "config.json", contents: "{}")
 let data = try dir.readFile(named: "config.json")
-try dir.deleteFile(named: "config.json")
 
 // Subdirectory management
 let sub = try dir.createSubdirectory(named: "output")
 let existing = try dir.createSubfolderIfNeeded(named: "cache")
+let nested = try dir.createSubdirectory(atRelativePath: "build/reports")
+
+// Copy and compare files
+try dir.copyFile(named: "config.json", to: sub, overwrite: true)
+let matches = try dir.fileContentsEqual(named: "config.json", in: sub)
+try dir.deleteFile(named: "config.json")
 
 // Search
 let swiftFiles = try dir.findFiles(withExtension: "swift", recursive: true)
