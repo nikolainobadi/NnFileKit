@@ -8,7 +8,7 @@
 import Foundation
 
 /// Provides top-level file system operations for navigating directories and managing files.
-public protocol FileSystem {
+public protocol FileSystem: Sendable {
     /// The current user's home directory.
     var homeDirectory: any Directory { get }
 

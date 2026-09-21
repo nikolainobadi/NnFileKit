@@ -10,7 +10,7 @@
 /// Every `named:` parameter is a single path component. Throwing methods reject a name containing `/`
 /// with ``FileSystemError/invalidName(_:)``; predicates return `false`. Use the `atRelativePath:`
 /// methods to address nested subdirectories.
-public protocol Directory {
+public protocol Directory: Sendable {
     /// The absolute path of this directory.
     var path: String { get }
 

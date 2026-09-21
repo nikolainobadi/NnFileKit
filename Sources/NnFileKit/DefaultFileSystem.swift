@@ -9,13 +9,8 @@ import Foundation
 
 /// A `FileManager`-backed ``FileSystem`` implementation that performs real file system operations.
 public struct DefaultFileSystem: FileSystem, Sendable {
-    private nonisolated(unsafe) let fileManager: FileManager
-
-    /// Creates a file system backed by the given file manager.
-    /// - Parameter fileManager: The `FileManager` to use. Defaults to `.default`.
-    public init(fileManager: FileManager = .default) {
-        self.fileManager = fileManager
-    }
+    /// Creates a file system backed by `FileManager.default`.
+    public init() { }
 }
 
 // MARK: - FileSystem
@@ -25,13 +20,13 @@ extension DefaultFileSystem {
     }
 
     public var currentDirectory: any Directory {
-        return DefaultDirectory(path: fileManager.currentDirectoryPath)
+        return DefaultDirectory(path: FileManager.default.currentDirectoryPath)
     }
 
     public func directory(at path: String) throws -> any Directory {
         var isDir: ObjCBool = false
 
-        guard fileManager.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else {
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else {
             throw FileSystemError.directoryNotFound(path)
         }
 
@@ -40,13 +35,13 @@ extension DefaultFileSystem {
 
     @discardableResult
     public func createDirectory(at path: String) throws -> any Directory {
-        try fileManager.createDirectory(atPath: path, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
 
         return DefaultDirectory(path: path)
     }
 
     public func desktopDirectory() throws -> any Directory {
-        let desktopPath = (fileManager.homeDirectoryForCurrentUser.path as NSString).appendingPathComponent("Desktop")
+        let desktopPath = (FileManager.default.homeDirectoryForCurrentUser.path as NSString).appendingPathComponent("Desktop")
         
         return try directory(at: desktopPath)
     }
@@ -60,6 +55,6 @@ extension DefaultFileSystem {
     }
 
     public func moveToTrash(at path: String) throws {
-        try fileManager.trashItem(at: URL(fileURLWithPath: path), resultingItemURL: nil)
+        try FileManager.default.trashItem(at: URL(fileURLWithPath: path), resultingItemURL: nil)
     }
 }

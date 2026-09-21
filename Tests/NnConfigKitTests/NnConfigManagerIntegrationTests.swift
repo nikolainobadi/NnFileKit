@@ -65,7 +65,7 @@ private extension NnConfigManagerIntegrationTests {
             projectName: "TestProject",
             configFolderPath: configFolderPath,
             configFileName: nil,
-            fileSystem: DefaultFileSystem(fileManager: .default)
+            fileSystem: DefaultFileSystem()
         )
     }
 }

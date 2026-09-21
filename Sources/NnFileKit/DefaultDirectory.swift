@@ -33,7 +33,6 @@ public extension DefaultDirectory {
     }
 }
 
-
 // MARK: - Directory
 extension DefaultDirectory {
     public var name: String {
