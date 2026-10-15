@@ -1,0 +1,13 @@
+{
+  "targets" : [
+    {
+      "buildAndTestCommands" : [
+        "swift build",
+        "swift test"
+      ],
+      "name" : "NnFileKit",
+      "path" : ".",
+      "targetType" : "library"
+    }
+  ]
+}
