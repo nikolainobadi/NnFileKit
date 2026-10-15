@@ -1,6 +1,6 @@
 # NnFileKit API Reference
 
-File system access from Swift with a protocol-based, fully mockable design. Two protocols: `FileSystem` (the absolute-path entry point) and `Directory` (the working handle you navigate from there).
+File system access from Swift with a protocol-based, fully mockable design. Two protocols: `FileSystem` (the absolute-path entry point) and `Directory` (the working handle you navigate from there). Both inherit `Sendable`, so custom conformers must satisfy its concurrency requirements, including protecting shared mutable state.
 
 ---
 
@@ -9,7 +9,7 @@ File system access from Swift with a protocol-based, fully mockable design. Two 
 The top-level abstraction. Depend on this protocol for testability; resolve a `Directory` from it, then do most work through the directory.
 
 ```swift
-public protocol FileSystem {
+public protocol FileSystem: Sendable {
     var homeDirectory: any Directory { get }
     var currentDirectory: any Directory { get }
     func moveToTrash(at path: String) throws
@@ -67,7 +67,7 @@ func prepareCache(using fs: FileSystem) throws -> any Directory {
 A handle to one directory. This is where most file work happens once you have a directory from the `FileSystem`.
 
 ```swift
-public protocol Directory {
+public protocol Directory: Sendable {
     var path: String { get }
     var name: String { get }
     var `extension`: String? { get }
@@ -172,16 +172,16 @@ public struct DefaultFileSystem: FileSystem, Sendable
 
 | Initializer | Description |
 |-------------|-------------|
-| `init(fileManager: FileManager = .default)` | Creates a file system backed by the given `FileManager` |
+| `init()` | Creates a file system backed by `FileManager.default`; no custom `FileManager` parameter |
 
 ### Behavior Notes
 
-- `homeDirectory` uses `NSHomeDirectory()`; `currentDirectory` uses `fileManager.currentDirectoryPath`
+- `homeDirectory` uses `NSHomeDirectory()`; `currentDirectory` uses `FileManager.default.currentDirectoryPath`
 - `desktopDirectory()` resolves `~/Desktop` then validates it via `directory(at:)` — throws `directoryNotFound` if it doesn't exist
 - `directory(at:)` checks existence **and** that the path is a directory before returning a `DefaultDirectory`
 - `createDirectory(at:)` uses `withIntermediateDirectories: true`, so it is idempotent for an existing directory
 - `readFile`/`writeFile` use UTF-8; `writeFile` is atomic (`atomically: true`)
-- `moveToTrash(at:)` calls `fileManager.trashItem(at:resultingItemURL:)` (macOS)
+- `moveToTrash(at:)` calls `FileManager.default.trashItem(at:resultingItemURL:)` (macOS)
 
 ### Usage Example
 

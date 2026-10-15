@@ -8,8 +8,10 @@ user-invocable: true
 
 Lightweight Swift package for file system access with a protocol-based, fully mockable design.
 
-**Dependency:** `https://github.com/nikolainobadi/NnFileKit.git` (from `0.8.0`)
-**Platforms:** macOS | **Swift:** 6.0
+**Dependency:** `https://github.com/nikolainobadi/NnFileKit.git` (from `0.9.0`)
+**Declared deployment minimums:** macOS 15 / iOS 18 | **Swift:** 6.0
+
+`DefaultFileSystem` still calls macOS-only `FileManager` APIs without platform guards; the iOS manifest declaration does not establish working iOS support.
 
 > This skill lives in the package repo at `Skills/NnFileKit/` and ships pinned to a release tag, so it describes the API as of that release.
 
@@ -23,17 +25,18 @@ Lightweight Swift package for file system access with a protocol-based, fully mo
 ## Quick Reference
 
 ### Production
-- **FileSystem** — Top-level protocol: `homeDirectory`, `currentDirectory`, `desktopDirectory()`, `directory(at:)`, `createDirectory(at:)` (get-or-create with intermediates), `readFile(at:)`, `writeFile(at:contents:)`, `moveToTrash(at:)`
-- **Directory** — Per-directory protocol: `path`/`name`/`extension`/`subdirectories`, plus `createFile`, `readFile(named:)`, `createSubdirectory`, `createSubfolderIfNeeded`, `findFiles(withExtension:recursive:)`, `copy(to:overwrite:)`, `copyFile(named:to:overwrite:)`, `fileContentsEqual(named:in:)`, `move(to:)`, `delete()`
+- **FileSystem** — Top-level `Sendable` protocol: `homeDirectory`, `currentDirectory`, `desktopDirectory()`, `directory(at:)`, `createDirectory(at:)` (get-or-create with intermediates), `readFile(at:)`, `writeFile(at:contents:)`, `moveToTrash(at:)`
+- **Directory** — Per-directory `Sendable` protocol: `path`/`name`/`extension`/`subdirectories`, plus `createFile`, `readFile(named:)`, `createSubdirectory`, `createSubfolderIfNeeded`, `findFiles(withExtension:recursive:)`, `copy(to:overwrite:)`, `copyFile(named:to:overwrite:)`, `fileContentsEqual(named:in:)`, `move(to:)`, `delete()`
 - **Nested paths** — `named:` takes **one path component only** (`/` throws `FileSystemError.invalidName`); use `subdirectory(atRelativePath:)` / `createSubdirectory(atRelativePath:)` for `"a/b"`
-- **DefaultFileSystem** — `FileManager`-backed production implementation (`struct`, `Sendable`); `init(fileManager: .default)`
+- **DefaultFileSystem** — `FileManager`-backed production implementation (`struct`, `Sendable`); `init()` uses `FileManager.default`
 - **DefaultDirectory** — `FileManager`-backed directory (`struct`, `Sendable`); normalizes paths with a trailing slash; static `.temporary` / `.home`
 - **FileSystemError** — `enum` with `.directoryNotFound(String)` / `.fileNotFound(String)` / `.invalidName(String)`
 - `FileSystem` is the absolute-path entry point; `Directory` is the working handle you navigate from there
 
 ### Testing
-- **MockFileSystem** — `final class` conforming to `FileSystem`; in-memory, records `capturedPaths`, `pathToMoveToTrash`, `writtenFilePath` / `writtenFileContents`; resolves directories via `directoryMap` → home/root tree → `directoryToLoad`, and reads via `fileContentsToRead`; `createDirectory(at:)` builds the chain in memory
-- **MockDirectory** — `final class` conforming to `Directory`; in-memory `containedFiles` / `fileContents`, records `movedToParents` / `copiedToParents` / `copiedFiles` / `deleteCallCount`; `subdirectory(named:)` throws for unknown names unless `autoCreateSubdirectories: true`; `createSubdirectory(named:)` throws if the name already exists
+- **MockFileSystem** — `Sendable` struct conforming to `FileSystem`; in-memory, records `capturedPaths`, `pathToMoveToTrash`, `writtenFilePath` / `writtenFileContents`; resolves directories via `directoryMap` → home/root tree → `directoryToLoad`, and reads via `fileContentsToRead`; `createDirectory(at:)` builds the chain in memory
+- **MockDirectory** — `Sendable` struct conforming to `Directory`; in-memory `containedFiles` / `fileContents`, records `movedToParents` / `copiedToParents` / `copiedFiles` / `deleteCallCount`; `subdirectory(named:)` throws for unknown names unless `autoCreateSubdirectories: true`; `createSubdirectory(named:)` throws if the name already exists
+- Copies of either mock share mutable state and call records; initialize a fresh mock for independent state
 - Both mocks take `throwError: true` to fail every throwing operation at once
 
 ### Sibling product (not covered here)

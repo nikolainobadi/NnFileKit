@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-15
+
+### Added
+- Add `Sendable` conformance to `CopiedDirectory` and `CopiedFile` so recorded copy operations can cross concurrency boundaries
+
+### Changed
+- **Breaking:** Raise the declared minimum deployment targets to macOS 15 and iOS 18. Update consuming projects' deployment targets accordingly
+- **Breaking:** `Directory` and `FileSystem` now inherit `Sendable`, allowing their values to cross concurrency boundaries. Update custom conformers to satisfy `Sendable` requirements
+- **Breaking:** `MockDirectory` and `MockFileSystem` are now `Sendable` structs with synchronized mutable state shared across copies. Replace class-only usage such as identity comparisons or weak references with assertions on their exposed state
+- **Breaking:** Remove `DefaultFileSystem(fileManager:)`; use `DefaultFileSystem()`, which uses `FileManager.default`, or provide a custom `FileSystem` implementation when different behavior is needed
+
 ## [0.8.0] - 2026-09-13
 
 ### Added
@@ -46,7 +57,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Fix typo in README dependency name (`NnFileTesing` → `NnFileTesting`)
 
-[Unreleased]: https://github.com/nikolainobadi/NnFileKit/compare/0.8.0...HEAD
+[Unreleased]: https://github.com/nikolainobadi/NnFileKit/compare/0.9.0...HEAD
+[0.9.0]: https://github.com/nikolainobadi/NnFileKit/compare/0.8.0...0.9.0
 [0.8.0]: https://github.com/nikolainobadi/NnFileKit/compare/0.7.0...0.8.0
 [0.7.0]: https://github.com/nikolainobadi/NnFileKit/compare/0.6.0...0.7.0
 [0.6.0]: https://github.com/nikolainobadi/NnFileKit/compare/0.5.0...0.6.0

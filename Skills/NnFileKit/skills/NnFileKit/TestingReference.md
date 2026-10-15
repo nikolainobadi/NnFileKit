@@ -2,14 +2,16 @@
 
 In-memory test doubles for file system access. Import `NnFileTesting` alongside `NnFileKit`. Nothing touches disk — `MockFileSystem` and `MockDirectory` hold files and folders in memory and record the calls made against them.
 
+Both mocks are `Sendable` through their protocols. Copies share lock-protected mutable state and call records, so assertions on the original still observe calls made through an injected copy. Initialize a fresh mock when independent state is needed. Mutable properties have nonmutating setters and remain writable through `let` bindings. Individual getters and setters are locked; a read-modify-write expression such as `fileContents[name] = text` is not one atomic operation. Configure fixtures before concurrent use and await work before asserting recorded state.
+
 ---
 
-## Class: MockFileSystem
+## Struct: MockFileSystem
 
 In-memory `FileSystem` test double. Resolves directories from a preconfigured map, its in-memory home/root trees, or a single fallback directory, and records every path it's asked about.
 
 ```swift
-public final class MockFileSystem: FileSystem
+public struct MockFileSystem: FileSystem
 ```
 
 ### Initialization
@@ -71,12 +73,12 @@ let dir = try mock.directory(at: "/work/project")
 
 ---
 
-## Class: MockDirectory
+## Struct: MockDirectory
 
 In-memory `Directory` test double. Holds files and subdirectories in memory and records mutations.
 
 ```swift
-public final class MockDirectory: Directory
+public struct MockDirectory: Directory
 ```
 
 ### Initialization
@@ -119,15 +121,15 @@ public init(
 
 ### Copy Records
 
-Both are `Equatable` structs with public memberwise initializers, so tests can compare whole arrays.
+Both are `Equatable`, `Sendable` structs with public memberwise initializers, so tests can compare whole arrays.
 
 ```swift
-public struct CopiedDirectory: Equatable {
+public struct CopiedDirectory: Equatable, Sendable {
     public let parentPath: String   // path of the parent copied into
     public let overwrite: Bool
 }
 
-public struct CopiedFile: Equatable {
+public struct CopiedFile: Equatable, Sendable {
     public let name: String
     public let destinationPath: String   // full path of the copied file
     public let overwrite: Bool
@@ -142,6 +144,7 @@ public struct CopiedFile: Equatable {
 - `createSubdirectory(named:)` throws `NSError(code: 6)` if a subdirectory with that name already exists, else **appends** a new `MockDirectory` — mirroring `DefaultDirectory`'s throw-if-exists behavior
 - `createSubfolderIfNeeded(named:)` returns an existing match or **appends** a new `MockDirectory` to `subdirectories`
 - `createFile(named:contents:)` inserts into `containedFiles` + `fileContents`, returns the joined path (`@discardableResult`)
+- Unlike assigning a mock to another variable, `copy(to:overwrite:)` creates independent storage for the copied directory and its nested `MockDirectory` children
 - `copy(to:overwrite:)` records a `CopiedDirectory`, then returns a **deep copy** at `parent.path/name` (nested `MockDirectory` children are copied too, sharing no mutable state). If `parent` is a `MockDirectory`, the copy is appended to its `subdirectories`
 - `copyFile(named:to:overwrite:)` throws `NSError(code: 5)` if the name isn't in `containedFiles`; otherwise records a `CopiedFile` and returns `destination.path/name`. If `destination` is a `MockDirectory`, the file name and contents are written into it
 - Neither copy method enforces `overwrite` — an existing destination never makes the mock throw; assert on the recorded `overwrite` value instead

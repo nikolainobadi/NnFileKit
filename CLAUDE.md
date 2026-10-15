@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
+`Package.swift` declares minimum deployment targets of macOS 15 and iOS 18.
+
 ```bash
 swift build
 swift test
@@ -20,9 +22,9 @@ The checked-in `.build` directory was produced at a different absolute path (`~/
 
 Three library products from one package, layered strictly:
 
-- **NnFileKit** — the protocol layer. `FileSystem` handles top-level directory lookup/creation, whole-path read/write, and trash; `Directory` handles files, subdirectories and relative paths, search, copying, and content comparison. `DefaultFileSystem` / `DefaultDirectory` are the `FileManager`-backed implementations; both are `Sendable` structs.
+- **NnFileKit** — the protocol layer. `FileSystem` handles top-level directory lookup/creation, whole-path read/write, and trash; `Directory` handles files, subdirectories and relative paths, search, copying, and content comparison. Both protocols inherit `Sendable`. `DefaultFileSystem` / `DefaultDirectory` are the `FileManager`-backed implementations; both are `Sendable` structs. `DefaultFileSystem()` uses `FileManager.default` and takes no initializer arguments.
 - **NnConfigKit** — depends on NnFileKit. `NnConfigManager<Config: Codable>` reads/writes a single JSON file plus arbitrary nested files under a config folder. It talks *only* through the `FileSystem`/`Directory` protocols, never `FileManager` directly — that's what makes it testable, so keep new code in this module on the protocol side of the line.
-- **NnFileTesting** — depends on NnFileKit. Ships `MockFileSystem` / `MockDirectory` as a real product so downstream packages' test targets can import them. These are `final class` (mutable recorded state) while the defaults are structs.
+- **NnFileTesting** — depends on NnFileKit. Ships `MockFileSystem` / `MockDirectory` as a real product so downstream packages' test targets can import them. These are `Sendable` structs whose mutable state lives in shared storage guarded by `Synchronization.Mutex`; copying a mock value shares its state and recorded calls.
 
 Key invariants to preserve when touching either implementation pair:
 
@@ -49,7 +51,7 @@ Key invariants to preserve when touching either implementation pair:
 
 `Skills/NnFileKit/` holds the Claude Code skill documenting this package's public API. It lives here, not in NobadiScripts, so that an API change and its documentation land in the same PR — a cross-repo convention had no enforcement point and silently failed.
 
-- **Any PR changing `public`/`open`/`package` declarations under `Sources/` must also touch `Skills/`.** The `skill-docs` workflow enforces this. If a PR genuinely changes no documented behavior, apply the `skip-skill-check` label to waive it.
+- **Any PR changing `public`/`open`/`package` declarations under `Sources/` must also touch `Skills/`.** There is no CI workflow enforcing this requirement. If a PR genuinely changes no documented behavior, apply the `skip-skill-check` label to waive it.
 - `Skills/NnFileKit/.claude-plugin/plugin.json` **deliberately has no `version` field.** Git-based marketplace sources key their cache by commit sha, so a hand-typed version is a number nothing verifies — exactly the staleness this arrangement exists to remove. Do not reintroduce it.
 - SwiftPM ignores `Skills/`; it is not a target and never will be.
 

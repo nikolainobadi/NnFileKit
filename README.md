@@ -1,7 +1,7 @@
 # NnFileKit
 
 ![Swift 6.0](https://img.shields.io/badge/Swift-6.0-orange.svg)
-![macOS](https://img.shields.io/badge/macOS-14.0+-blueviolet.svg)
+![macOS](https://img.shields.io/badge/macOS-15.0+-blueviolet.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-lightgrey.svg)
 
 ## Overview
@@ -18,14 +18,14 @@ A lightweight Swift package providing protocol-based abstractions for file syste
 - **Trash support** — move items to trash instead of permanent deletion
 - **Generic config management** — `NnConfigManager<Config: Codable>` for type-safe JSON configuration files
 - **Nested config files** — create, append, remove, and delete files within config directory hierarchies
-- **Sendable conformance** — safe for use in Swift 6 strict concurrency
+- **Sendable conformance** — `FileSystem` and `Directory` require `Sendable`, including their default implementations and mocks, for Swift 6 strict concurrency
 - **Shared test doubles** — `MockFileSystem` and `MockDirectory` ship as a separate `NnFileTesting` library
 - **Error injection** — a single `throwError` flag makes every throwing mock operation fail, for exercising error paths
 
 ## Requirements
 
 - Swift 6.0+
-- macOS 14.0+
+- macOS 15.0+
 
 ## Installation
 
@@ -34,7 +34,7 @@ A lightweight Swift package providing protocol-based abstractions for file syste
 Add the package to your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/nikolainobadi/NnFileKit.git", from: "0.8.0")
+.package(url: "https://github.com/nikolainobadi/NnFileKit.git", from: "0.9.0")
 ```
 
 Then include the libraries you need in your target:
@@ -131,6 +131,8 @@ try manager.deletedNestedConfigFile(nestedFilePath: "settings/overrides.txt")
 ```
 
 ### Testing with Mocks
+
+`MockFileSystem` and `MockDirectory` are `Sendable` structs. Copies of a mock share lock-protected state, so calls recorded through one copy are visible through the others.
 
 ```swift
 import NnFileTesting
