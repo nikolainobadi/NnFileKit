@@ -7,23 +7,21 @@
 
 import NnFileKit
 import Foundation
+import Synchronization
 
 /// A test double for ``FileSystem`` that records calls and returns preconfigured values.
-public final class MockFileSystem: FileSystem {
+///
+/// Copies share one lock-guarded storage, so state recorded through any copy is visible from all of them.
+public struct MockFileSystem: FileSystem {
     private let desktop: any Directory
     private let throwError: Bool
     private let directoryToLoad: (any Directory)?
     private let directoryMap: [String: any Directory]?
     private let fileContentsToRead: [String: String]
     private let rootDirectory: any Directory
-
-    public private(set) var capturedPaths: [String] = []
-    public private(set) var pathToMoveToTrash: String?
-    public private(set) var writtenFilePath: String?
-    public private(set) var writtenFileContents: String?
+    private let storage: Storage
 
     public let homeDirectory: any Directory
-    public var currentDirectory: any Directory
 
     /// Creates a mock file system.
     /// - Parameters:
@@ -44,7 +42,7 @@ public final class MockFileSystem: FileSystem {
         throwError: Bool = false
     ) {
         self.homeDirectory = homeDirectory
-        self.currentDirectory = currentDirectory
+        self.storage = Storage(state: State(capturedPaths: [], pathToMoveToTrash: nil, writtenFilePath: nil, writtenFileContents: nil, currentDirectory: currentDirectory))
         self.directoryToLoad = directoryToLoad
         self.directoryMap = directoryMap
         self.desktop = desktop ?? MockDirectory(path: homeDirectory.path.appendingPathComponent("Desktop"))
@@ -60,12 +58,39 @@ public final class MockFileSystem: FileSystem {
             ext: nil
         )
     }
+}
 
+// MARK: - Recorded State
+public extension MockFileSystem {
+    var currentDirectory: any Directory {
+        get { storage.state.withLock { $0.currentDirectory } }
+        nonmutating set { storage.state.withLock { $0.currentDirectory = newValue } }
+    }
+
+    var capturedPaths: [String] {
+        return storage.state.withLock { $0.capturedPaths }
+    }
+
+    var pathToMoveToTrash: String? {
+        return storage.state.withLock { $0.pathToMoveToTrash }
+    }
+
+    var writtenFilePath: String? {
+        return storage.state.withLock { $0.writtenFilePath }
+    }
+
+    var writtenFileContents: String? {
+        return storage.state.withLock { $0.writtenFileContents }
+    }
+}
+
+// MARK: - FileSystem
+extension MockFileSystem {
     /// Resolves `directoryMap` first, then folders present in the home or root tree, then `directoryToLoad`.
     public func directory(at path: String) throws -> any Directory {
         try throwIfNeeded()
 
-        capturedPaths.append(path)
+        storage.state.withLock { $0.capturedPaths.append(path) }
 
         if let directory = existingDirectory(at: path) {
             return directory
@@ -80,7 +105,7 @@ public final class MockFileSystem: FileSystem {
     public func createDirectory(at path: String) throws -> any Directory {
         try throwIfNeeded()
 
-        capturedPaths.append(path)
+        storage.state.withLock { $0.capturedPaths.append(path) }
 
         if let directory = existingDirectory(at: path) {
             return directory
@@ -120,22 +145,23 @@ public final class MockFileSystem: FileSystem {
     public func writeFile(at path: String, contents: String) throws {
         try throwIfNeeded()
 
-        writtenFilePath = path
-        writtenFileContents = contents
+        storage.state.withLock { state in
+            state.writtenFilePath = path
+            state.writtenFileContents = contents
+        }
 
         let directoryPath = (path as NSString).deletingLastPathComponent
         let fileName = (path as NSString).lastPathComponent
 
         if let mockDir = try? self.directory(at: directoryPath) as? MockDirectory {
-            mockDir.fileContents[fileName] = contents
-            mockDir.containedFiles.insert(fileName)
+            mockDir.receiveFile(named: fileName, contents: contents)
         }
     }
 
     public func moveToTrash(at path: String) throws {
         try throwIfNeeded()
 
-        pathToMoveToTrash = path
+        storage.state.withLock { $0.pathToMoveToTrash = path }
     }
 }
 
@@ -173,5 +199,24 @@ private extension MockFileSystem {
         if throwError {
             throw NSError(domain: "MockFileSystem", code: 2)
         }
+    }
+}
+
+// MARK: - Storage
+private extension MockFileSystem {
+    final class Storage: Sendable {
+        let state: Mutex<State>
+
+        init(state: State) {
+            self.state = Mutex(state)
+        }
+    }
+
+    struct State {
+        var capturedPaths: [String]
+        var pathToMoveToTrash: String?
+        var writtenFilePath: String?
+        var writtenFileContents: String?
+        var currentDirectory: any Directory
     }
 }

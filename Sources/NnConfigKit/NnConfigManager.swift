@@ -16,7 +16,7 @@ public struct NnConfigManager<Config: Codable>: Sendable {
     public let projectName: String
     public let configFolderPath: String
     public let configFileName: String
-    nonisolated(unsafe) let fileSystem: any FileSystem
+    let fileSystem: any FileSystem
 
     /// Initializes a new configuration manager with the specified project name, configuration folder path, and configuration file name.
     /// - Parameters:

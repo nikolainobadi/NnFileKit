@@ -7,23 +7,20 @@
 
 import NnFileKit
 import Foundation
+import Synchronization
 
 /// A test double for ``Directory`` that records calls and returns preconfigured values.
-public final class MockDirectory: Directory {
+///
+/// Copies share one lock-guarded storage, so state recorded through any copy is visible from all of them.
+public struct MockDirectory: Directory {
     private let throwError: Bool
     private let shouldThrowOnSubdirectory: Bool
     private let autoCreateSubdirectories: Bool
+    private let storage: Storage
 
     public let path: String
     public let name: String
     public let `extension`: String?
-    public var subdirectories: [any Directory]
-    public var containedFiles: Set<String>
-    public var fileContents: [String: String] = [:]
-    public private(set) var movedToParents: [String] = []
-    public private(set) var copiedToParents: [CopiedDirectory] = []
-    public private(set) var copiedFiles: [CopiedFile] = []
-    public private(set) var deleteCallCount: Int = 0
 
     /// Creates a mock directory.
     /// - Parameters:
@@ -35,22 +32,69 @@ public final class MockDirectory: Directory {
     ///   - autoCreateSubdirectories: Pass `true` to make ``subdirectory(named:)`` synthesize a directory for unknown names instead of failing.
     ///   - ext: The value reported by ``extension``.
     public init(path: String, subdirectories: [any Directory] = [], containedFiles: Set<String> = [], throwError: Bool = false, shouldThrowOnSubdirectory: Bool = false, autoCreateSubdirectories: Bool = false, ext: String? = nil) {
+        self.init(
+            path: path,
+            throwError: throwError,
+            shouldThrowOnSubdirectory: shouldThrowOnSubdirectory,
+            autoCreateSubdirectories: autoCreateSubdirectories,
+            ext: ext,
+            state: State(subdirectories: subdirectories, containedFiles: containedFiles, fileContents: [:], movedToParents: [], copiedToParents: [], copiedFiles: [], deleteCallCount: 0)
+        )
+    }
+
+    private init(path: String, throwError: Bool, shouldThrowOnSubdirectory: Bool, autoCreateSubdirectories: Bool, ext: String?, state: State) {
         self.path = path
         self.name = (path as NSString).lastPathComponent
-        self.subdirectories = subdirectories
-        self.containedFiles = containedFiles
         self.throwError = throwError
         self.shouldThrowOnSubdirectory = shouldThrowOnSubdirectory
         self.autoCreateSubdirectories = autoCreateSubdirectories
         self.extension = ext
+        self.storage = Storage(state: state)
+    }
+}
+
+// MARK: - Recorded State
+public extension MockDirectory {
+    var subdirectories: [any Directory] {
+        get { storage.state.withLock { $0.subdirectories } }
+        nonmutating set { storage.state.withLock { $0.subdirectories = newValue } }
     }
 
+    var containedFiles: Set<String> {
+        get { storage.state.withLock { $0.containedFiles } }
+        nonmutating set { storage.state.withLock { $0.containedFiles = newValue } }
+    }
+
+    var fileContents: [String: String] {
+        get { storage.state.withLock { $0.fileContents } }
+        nonmutating set { storage.state.withLock { $0.fileContents = newValue } }
+    }
+
+    var movedToParents: [String] {
+        return storage.state.withLock { $0.movedToParents }
+    }
+
+    var copiedToParents: [CopiedDirectory] {
+        return storage.state.withLock { $0.copiedToParents }
+    }
+
+    var copiedFiles: [CopiedFile] {
+        return storage.state.withLock { $0.copiedFiles }
+    }
+
+    var deleteCallCount: Int {
+        return storage.state.withLock { $0.deleteCallCount }
+    }
+}
+
+// MARK: - Directory
+extension MockDirectory {
     public func containsFile(named name: String) -> Bool {
         guard isSingleComponent(name) else {
             return false
         }
 
-        return containedFiles.contains(name)
+        return storage.state.withLock { $0.containedFiles.contains(name) }
     }
 
     public func subdirectory(named name: String) throws -> any Directory {
@@ -61,7 +105,7 @@ public final class MockDirectory: Directory {
             throw NSError(domain: "MockDirectory", code: 1)
         }
 
-        if let match = subdirectories.first(where: { $0.name == name }) {
+        if let match = storage.state.withLock({ state in state.subdirectories.first(where: { $0.name == name }) }) {
             return match
         }
 
@@ -76,29 +120,44 @@ public final class MockDirectory: Directory {
         try throwIfNeeded()
         try validateName(name)
 
-        guard !subdirectories.contains(where: { $0.name == name }) else {
+        let created: MockDirectory? = storage.state.withLock { state in
+            guard !state.subdirectories.contains(where: { $0.name == name }) else {
+                return nil
+            }
+
+            let child = makeChild(named: name)
+            state.subdirectories.append(child)
+
+            return child
+        }
+
+        guard let created else {
             throw NSError(domain: "MockDirectory", code: 6, userInfo: [NSLocalizedDescriptionKey: "Directory already exists: \(name)"])
         }
 
-        return appendSubdirectory(named: name)
+        return created
     }
 
     public func move(to parent: any Directory) throws {
         try throwIfNeeded()
 
-        movedToParents.append(parent.path)
+        let parentPath = parent.path
+
+        storage.state.withLock { $0.movedToParents.append(parentPath) }
     }
 
     @discardableResult
     public func copy(to parent: any Directory, overwrite: Bool) throws -> any Directory {
         try throwIfNeeded()
 
-        copiedToParents.append(CopiedDirectory(parentPath: parent.path, overwrite: overwrite))
+        let parentPath = parent.path
 
-        let copy = deepCopy(toPath: parent.path.appendingPathComponent(name))
+        storage.state.withLock { $0.copiedToParents.append(CopiedDirectory(parentPath: parentPath, overwrite: overwrite)) }
+
+        let copy = deepCopy(toPath: parentPath.appendingPathComponent(name))
 
         if let mockParent = parent as? MockDirectory {
-            mockParent.subdirectories.append(copy)
+            mockParent.receiveSubdirectory(copy)
         }
 
         return copy
@@ -107,25 +166,30 @@ public final class MockDirectory: Directory {
     public func delete() throws {
         try throwIfNeeded()
 
-        deleteCallCount += 1
+        storage.state.withLock { $0.deleteCallCount += 1 }
     }
 
     public func createSubfolderIfNeeded(named name: String) throws -> any Directory {
         try throwIfNeeded()
         try validateName(name)
 
-        if let existing = subdirectories.first(where: { $0.name == name }) {
-            return existing
-        }
+        return storage.state.withLock { state -> any Directory in
+            if let existing = state.subdirectories.first(where: { $0.name == name }) {
+                return existing
+            }
 
-        return appendSubdirectory(named: name)
+            let child = makeChild(named: name)
+            state.subdirectories.append(child)
+
+            return child
+        }
     }
 
     public func deleteFile(named name: String) throws {
         try throwIfNeeded()
         try validateName(name)
 
-        containedFiles.remove(name)
+        storage.state.withLock { _ = $0.containedFiles.remove(name) }
     }
 
     @discardableResult
@@ -133,8 +197,8 @@ public final class MockDirectory: Directory {
         try throwIfNeeded()
         try validateName(name)
 
-        containedFiles.insert(name)
-        fileContents[name] = contents
+        receiveFile(named: name, contents: contents)
+
         return path.appendingPathComponent(name)
     }
 
@@ -143,16 +207,23 @@ public final class MockDirectory: Directory {
         try throwIfNeeded()
         try validateName(name)
 
-        guard containedFiles.contains(name) else {
+        let destinationPath = destination.path.appendingPathComponent(name)
+        let source: (found: Bool, contents: String?) = storage.state.withLock { state in
+            guard state.containedFiles.contains(name) else {
+                return (false, nil)
+            }
+
+            state.copiedFiles.append(CopiedFile(name: name, destinationPath: destinationPath, overwrite: overwrite))
+
+            return (true, state.fileContents[name])
+        }
+
+        guard source.found else {
             throw NSError(domain: "MockDirectory", code: 5, userInfo: [NSLocalizedDescriptionKey: "File not found: \(name)"])
         }
 
-        let destinationPath = destination.path.appendingPathComponent(name)
-        copiedFiles.append(CopiedFile(name: name, destinationPath: destinationPath, overwrite: overwrite))
-
         if let mockDestination = destination as? MockDirectory {
-            mockDestination.containedFiles.insert(name)
-            mockDestination.fileContents[name] = fileContents[name]
+            mockDestination.receiveFile(named: name, contents: source.contents)
         }
 
         return destinationPath
@@ -163,7 +234,11 @@ public final class MockDirectory: Directory {
         try throwIfNeeded()
         try validateName(name)
 
-        guard containedFiles.contains(name) else {
+        let local: (found: Bool, contents: String) = storage.state.withLock { state in
+            return (state.containedFiles.contains(name), state.fileContents[name] ?? "")
+        }
+
+        guard local.found else {
             throw FileSystemError.fileNotFound(path.appendingPathComponent(name))
         }
 
@@ -171,25 +246,35 @@ public final class MockDirectory: Directory {
             return false
         }
 
-        return try (fileContents[name] ?? "") == other.readFile(named: name)
+        return try local.contents == other.readFile(named: name)
     }
 
     public func readFile(named name: String) throws -> String {
         try throwIfNeeded()
         try validateName(name)
 
-        guard containedFiles.contains(name) else {
+        let contents: String? = storage.state.withLock { state in
+            guard state.containedFiles.contains(name) else {
+                return nil
+            }
+
+            return state.fileContents[name] ?? ""
+        }
+
+        guard let contents else {
             throw NSError(domain: "MockDirectory", code: 3, userInfo: [NSLocalizedDescriptionKey: "File not found: \(name)"])
         }
-        return fileContents[name] ?? ""
+
+        return contents
     }
 
     public func findFiles(withExtension extension: String?, recursive: Bool) throws -> [String] {
         try throwIfNeeded()
 
+        let snapshot = storage.state.withLock { ($0.containedFiles, $0.subdirectories) }
         var filePaths: [String] = []
 
-        for fileName in containedFiles {
+        for fileName in snapshot.0 {
             if let ext = `extension` {
                 let fileExt = (fileName as NSString).pathExtension
                 if fileExt == ext {
@@ -201,7 +286,7 @@ public final class MockDirectory: Directory {
         }
 
         if recursive {
-            for subdirectory in subdirectories {
+            for subdirectory in snapshot.1 {
                 let subFiles = try subdirectory.findFiles(withExtension: `extension`, recursive: true)
                 filePaths.append(contentsOf: subFiles)
             }
@@ -211,22 +296,29 @@ public final class MockDirectory: Directory {
     }
 }
 
+// MARK: - Internal Methods
+extension MockDirectory {
+    /// Adds `name` with `contents` in one critical section, so the file never appears without its contents.
+    func receiveFile(named name: String, contents: String?) {
+        storage.state.withLock { state in
+            state.containedFiles.insert(name)
+            state.fileContents[name] = contents
+        }
+    }
+}
+
 // MARK: - Private Methods
 private extension MockDirectory {
-    /// Returns a deep copy rooted at `path`, so the copy shares no mutable children with the original.
-    func deepCopy(toPath path: String) -> MockDirectory {
-        let copy = MockDirectory(
-            path: path,
-            subdirectories: [],
-            containedFiles: containedFiles,
-            throwError: false,
-            shouldThrowOnSubdirectory: false,
-            autoCreateSubdirectories: false,
-            ext: `extension`
-        )
+    /// Appends `child` to this directory's subdirectories.
+    func receiveSubdirectory(_ child: any Directory) {
+        storage.state.withLock { $0.subdirectories.append(child) }
+    }
 
-        copy.fileContents = fileContents
-        copy.subdirectories = subdirectories.map { child -> any Directory in
+    /// Returns a deep copy rooted at `path`, so the copy shares no mutable children with the original.
+    /// Each child is copied after this directory's lock is released.
+    func deepCopy(toPath path: String) -> MockDirectory {
+        let snapshot = storage.state.withLock { $0 }
+        let children = snapshot.subdirectories.map { child -> any Directory in
             guard let mockChild = child as? MockDirectory else {
                 return child
             }
@@ -234,12 +326,19 @@ private extension MockDirectory {
             return mockChild.deepCopy(toPath: path.appendingPathComponent(mockChild.name))
         }
 
-        return copy
+        return MockDirectory(
+            path: path,
+            throwError: false,
+            shouldThrowOnSubdirectory: false,
+            autoCreateSubdirectories: false,
+            ext: `extension`,
+            state: State(subdirectories: children, containedFiles: snapshot.containedFiles, fileContents: snapshot.fileContents, movedToParents: [], copiedToParents: [], copiedFiles: [], deleteCallCount: 0)
+        )
     }
 
-    /// Appends and returns a new child one path component below this directory.
-    func appendSubdirectory(named name: String) -> MockDirectory {
-        let newSubdirectory = MockDirectory(
+    /// Returns a new, empty child one path component below this directory.
+    func makeChild(named name: String) -> MockDirectory {
+        return MockDirectory(
             path: path.appendingPathComponent(name),
             subdirectories: [],
             containedFiles: [],
@@ -248,10 +347,6 @@ private extension MockDirectory {
             autoCreateSubdirectories: false,
             ext: nil
         )
-
-        subdirectories.append(newSubdirectory)
-
-        return newSubdirectory
     }
 
     /// Returns whether `name` is a single path component.
@@ -273,9 +368,30 @@ private extension MockDirectory {
     }
 }
 
+// MARK: - Storage
+private extension MockDirectory {
+    final class Storage: Sendable {
+        let state: Mutex<State>
+
+        init(state: State) {
+            self.state = Mutex(state)
+        }
+    }
+
+    struct State {
+        var subdirectories: [any Directory]
+        var containedFiles: Set<String>
+        var fileContents: [String: String]
+        var movedToParents: [String]
+        var copiedToParents: [CopiedDirectory]
+        var copiedFiles: [CopiedFile]
+        var deleteCallCount: Int
+    }
+}
+
 // MARK: - Dependencies
 /// A directory copy recorded by ``MockDirectory/copy(to:overwrite:)``.
-public struct CopiedDirectory: Equatable {
+public struct CopiedDirectory: Equatable, Sendable {
     public let parentPath: String
     public let overwrite: Bool
 
@@ -289,7 +405,7 @@ public struct CopiedDirectory: Equatable {
 }
 
 /// A file copy recorded by ``MockDirectory/copyFile(named:to:overwrite:)``.
-public struct CopiedFile: Equatable {
+public struct CopiedFile: Equatable, Sendable {
     public let name: String
     public let destinationPath: String
     public let overwrite: Bool
