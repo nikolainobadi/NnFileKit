@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-10-20
+
+### Added
+- `NnFileTesting` now re-exports `NnFileKit`, making its public APIs available with just `import NnFileTesting`
+
 ## [0.9.0] - 2026-10-15
 
 ### Added
@@ -57,7 +62,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Fix typo in README dependency name (`NnFileTesing` → `NnFileTesting`)
 
-[Unreleased]: https://github.com/nikolainobadi/NnFileKit/compare/0.9.0...HEAD
+[Unreleased]: https://github.com/nikolainobadi/NnFileKit/compare/0.9.1...HEAD
+[0.9.1]: https://github.com/nikolainobadi/NnFileKit/compare/0.9.0...0.9.1
 [0.9.0]: https://github.com/nikolainobadi/NnFileKit/compare/0.8.0...0.9.0
 [0.8.0]: https://github.com/nikolainobadi/NnFileKit/compare/0.7.0...0.8.0
 [0.7.0]: https://github.com/nikolainobadi/NnFileKit/compare/0.6.0...0.7.0

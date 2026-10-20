@@ -16,6 +16,8 @@ swift test --filter MockDirectoryTests
 swift test --filter NnConfigManagerTests
 ```
 
+`.github/workflows/ci.yml` runs `swift build` and `swift test` for pull requests targeting `main`, using the `macos-26` runner and Xcode 26.3.
+
 The checked-in `.build` directory was produced at a different absolute path (`~/Desktop/Nn_FileManagement/NnFileKit`). If a build fails with `PCH was compiled with module cache path ...` / `missing required module 'SwiftShims'`, that stale cache is the cause — run `swift package clean` (or `rm -rf .build`), or build with `--scratch-path <tmp>` to leave the existing cache alone.
 
 ## Architecture
@@ -24,7 +26,7 @@ Three library products from one package, layered strictly:
 
 - **NnFileKit** — the protocol layer. `FileSystem` handles top-level directory lookup/creation, whole-path read/write, and trash; `Directory` handles files, subdirectories and relative paths, search, copying, and content comparison. Both protocols inherit `Sendable`. `DefaultFileSystem` / `DefaultDirectory` are the `FileManager`-backed implementations; both are `Sendable` structs. `DefaultFileSystem()` uses `FileManager.default` and takes no initializer arguments.
 - **NnConfigKit** — depends on NnFileKit. `NnConfigManager<Config: Codable>` reads/writes a single JSON file plus arbitrary nested files under a config folder. It talks *only* through the `FileSystem`/`Directory` protocols, never `FileManager` directly — that's what makes it testable, so keep new code in this module on the protocol side of the line.
-- **NnFileTesting** — depends on NnFileKit. Ships `MockFileSystem` / `MockDirectory` as a real product so downstream packages' test targets can import them. These are `Sendable` structs whose mutable state lives in shared storage guarded by `Synchronization.Mutex`; copying a mock value shares its state and recorded calls.
+- **NnFileTesting** — depends on and re-exports NnFileKit, so `import NnFileTesting` also exposes NnFileKit's public API. Ships `MockFileSystem` / `MockDirectory` as a real product so downstream packages' test targets can import them. These are `Sendable` structs whose mutable state lives in shared storage guarded by `Synchronization.Mutex`; copying a mock value shares its state and recorded calls.
 
 Key invariants to preserve when touching either implementation pair:
 

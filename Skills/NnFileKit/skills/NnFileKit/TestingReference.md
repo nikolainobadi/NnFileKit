@@ -1,6 +1,6 @@
 # NnFileKit Testing Reference
 
-In-memory test doubles for file system access. Import `NnFileTesting` alongside `NnFileKit`. Nothing touches disk — `MockFileSystem` and `MockDirectory` hold files and folders in memory and record the calls made against them.
+In-memory test doubles for file system access. Add the `NnFileTesting` product to your test target's dependencies and use `import NnFileTesting`. In 0.9.1 and later, it re-exports `NnFileKit`, so the same import exposes `FileSystem`, `Directory`, `FileSystemError`, and the rest of the public API without a separate `import NnFileKit`. Nothing touches disk — `MockFileSystem` and `MockDirectory` hold files and folders in memory and record the calls made against them.
 
 Both mocks are `Sendable` through their protocols. Copies share lock-protected mutable state and call records, so assertions on the original still observe calls made through an injected copy. Initialize a fresh mock when independent state is needed. Mutable properties have nonmutating setters and remain writable through `let` bindings. Individual getters and setters are locked; a read-modify-write expression such as `fileContents[name] = text` is not one atomic operation. Configure fixtures before concurrent use and await work before asserting recorded state.
 
