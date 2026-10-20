@@ -9,7 +9,6 @@ import Foundation
 
 /// A `FileManager`-backed ``FileSystem`` implementation that performs real file system operations.
 public struct DefaultFileSystem: FileSystem, Sendable {
-    /// Creates a file system backed by `FileManager.default`.
     public init() { }
 }
 
