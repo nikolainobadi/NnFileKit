@@ -212,9 +212,9 @@ let fs = MockFileSystem(directoryMap: [
 ### Pattern: Force a directory lookup to fail
 
 ```swift
-// No map and no fallback → directory(at:) throws
+// No map, existing tree entry, or fallback → directoryNotFound
 let fs = MockFileSystem()
-#expect(throws: (any Error).self) { try fs.directory(at: "/missing") }
+#expect(throws: FileSystemError.self) { try fs.directory(at: "/missing") }
 ```
 
 ### Pattern: Assert a write happened without disk I/O
@@ -312,5 +312,5 @@ try fs.writeFile(at: "/out/report.txt", contents: "done")
 - **`createSubdirectory` throws on an existing name; `createSubfolderIfNeeded` does not** — Same contract as `DefaultDirectory`. Both append when they create, so assert against whichever your production code calls.
 - **Copy mocks record, they don't enforce `overwrite`** — Assert the `overwrite` you passed via `copiedFiles` / `copiedToParents`; test the throw-on-existing behavior against `DefaultDirectory` in a temp folder.
 - **Reach for `throwError` before hand-building a failure** — One flag fails every throwing method, which is usually what an error-path test wants. Use `shouldThrowOnSubdirectory` when only the lookup should fail.
-- **Mock errors are mostly `NSError`** — The doubles throw `NSError` with domain `"MockFileSystem"` / `"MockDirectory"`, so assert on `any Error`. They throw `FileSystemError` where it matches the real implementation: `invalidName` for a `/` in a `named:` argument, `fileNotFound` from `MockFileSystem.readFile(at:)` and `MockDirectory.fileContentsEqual(named:in:)`.
+- **Match assertions to the failure being exercised** — Missing directories throw `FileSystemError.directoryNotFound`: `MockFileSystem.directory(at:)` carries the requested path; `MockDirectory.subdirectory(named:)` carries the full missing subdirectory path. Relative-path lookup propagates the first missing component's full path. Leave failure flags off to exercise these cases; `throwError` and `shouldThrowOnSubdirectory` still inject `NSError` with domain `"MockFileSystem"` / `"MockDirectory"`. Other `FileSystemError` cases include `invalidName` for a `/` in a `named:` argument and `fileNotFound` from `MockFileSystem.readFile(at:)` and `MockDirectory.fileContentsEqual(named:in:)`.
 - **Inspect in-memory state directly** — `containedFiles`, `fileContents`, `capturedPaths`, `pathToMoveToTrash`, `writtenFilePath`, `writtenFileContents`, `movedToParents`, `copiedToParents`, `copiedFiles`, and `deleteCallCount` are your assertions; you rarely need to re-read through the protocol.

@@ -109,7 +109,7 @@ Use the `atRelativePath:` helpers below to address nested subdirectories.
 | `move(to: any Directory)` | `Void` | Moves this directory into a parent directory |
 | `copy(to:overwrite:)` | `any Directory` | Copies this directory tree into `parent` under its own name; returns the copy (`@discardableResult`). Parent must exist; `overwrite: false` throws if the destination exists |
 | `containsFile(named:)` | `Bool` | Whether a file with that name exists here |
-| `subdirectory(named:)` | `any Directory` | Existing subdirectory; throws if absent |
+| `subdirectory(named:)` | `any Directory` | Existing subdirectory; throws `FileSystemError.directoryNotFound` with the missing subdirectory path if absent |
 | `createSubdirectory(named:)` | `any Directory` | Creates a new subdirectory (non-recursive) |
 | `createSubfolderIfNeeded(named:)` | `any Directory` | Returns existing subdirectory or creates it (recursive intermediates) |
 | `deleteFile(named:)` | `Void` | Deletes a file by name |

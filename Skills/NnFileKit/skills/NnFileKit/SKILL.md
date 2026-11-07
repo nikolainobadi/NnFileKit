@@ -8,7 +8,7 @@ user-invocable: true
 
 Lightweight Swift package for file system access with a protocol-based, fully mockable design.
 
-**Dependency:** `https://github.com/nikolainobadi/NnFileKit.git` (from `0.9.1`)
+**Dependency:** `https://github.com/nikolainobadi/NnFileKit.git` (from `0.9.2`)
 **Declared deployment minimums:** macOS 15 / iOS 18 | **Swift:** 6.0
 
 `DefaultFileSystem` still calls macOS-only `FileManager` APIs without platform guards; the iOS manifest declaration does not establish working iOS support.
@@ -37,6 +37,7 @@ Lightweight Swift package for file system access with a protocol-based, fully mo
 - **Import** — `import NnFileTesting` also exposes the public `NnFileKit` API in 0.9.1 and later; a separate `import NnFileKit` is unnecessary in test files.
 - **MockFileSystem** — `Sendable` struct conforming to `FileSystem`; in-memory, records `capturedPaths`, `pathToMoveToTrash`, `writtenFilePath` / `writtenFileContents`; resolves directories via `directoryMap` → home/root tree → `directoryToLoad`, and reads via `fileContentsToRead`; `createDirectory(at:)` builds the chain in memory
 - **MockDirectory** — `Sendable` struct conforming to `Directory`; in-memory `containedFiles` / `fileContents`, records `movedToParents` / `copiedToParents` / `copiedFiles` / `deleteCallCount`; `subdirectory(named:)` throws for unknown names unless `autoCreateSubdirectories: true`; `createSubdirectory(named:)` throws if the name already exists
+- **Missing directories** — Unresolved `MockFileSystem.directory(at:)` and `MockDirectory.subdirectory(named:)` throw `FileSystemError.directoryNotFound` with the missing directory path; explicit failure flags still throw `NSError`.
 - Copies of either mock share mutable state and call records; initialize a fresh mock for independent state
 - Both mocks take `throwError: true` to fail every throwing operation at once
 

@@ -34,7 +34,7 @@ A lightweight Swift package providing protocol-based abstractions for file syste
 Add the package to your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/nikolainobadi/NnFileKit.git", from: "0.9.1")
+.package(url: "https://github.com/nikolainobadi/NnFileKit.git", from: "0.9.2")
 ```
 
 Then include the libraries you need in your target:
@@ -135,6 +135,8 @@ try manager.deletedNestedConfigFile(nestedFilePath: "settings/overrides.txt")
 `NnFileTesting` re-exports `NnFileKit`, so `import NnFileTesting` also makes core types such as `FileSystem` and `Directory` available without a separate `import NnFileKit`.
 
 `MockFileSystem` and `MockDirectory` are `Sendable` structs. Copies of a mock share lock-protected state, so calls recorded through one copy are visible through the others.
+
+Missing directory lookups through `MockFileSystem.directory(at:)` and `MockDirectory.subdirectory(named:)` throw `FileSystemError.directoryNotFound` with the missing directory's path. Explicit error-injection flags still throw their mock errors.
 
 ```swift
 import NnFileTesting

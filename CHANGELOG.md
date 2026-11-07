@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-11-07
+
 ### Fixed
 - `MockFileSystem.directory(at:)` and `MockDirectory.subdirectory(named:)` now throw `FileSystemError.directoryNotFound` for a missing directory, matching `DefaultFileSystem` and `DefaultDirectory`. Tests that matched the previous undocumented `NSError` codes (`MockFileSystem` code 1, `MockDirectory` code 2) should match `FileSystemError.directoryNotFound` instead
 
@@ -65,7 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Fix typo in README dependency name (`NnFileTesing` → `NnFileTesting`)
 
-[Unreleased]: https://github.com/nikolainobadi/NnFileKit/compare/0.9.1...HEAD
+[Unreleased]: https://github.com/nikolainobadi/NnFileKit/compare/0.9.2...HEAD
+[0.9.2]: https://github.com/nikolainobadi/NnFileKit/compare/0.9.1...0.9.2
 [0.9.1]: https://github.com/nikolainobadi/NnFileKit/compare/0.9.0...0.9.1
 [0.9.0]: https://github.com/nikolainobadi/NnFileKit/compare/0.8.0...0.9.0
 [0.8.0]: https://github.com/nikolainobadi/NnFileKit/compare/0.7.0...0.8.0
