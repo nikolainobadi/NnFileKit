@@ -87,6 +87,7 @@ public extension MockFileSystem {
 // MARK: - FileSystem
 extension MockFileSystem {
     /// Resolves `directoryMap` first, then folders present in the home or root tree, then `directoryToLoad`.
+    /// - Throws: ``FileSystemError/directoryNotFound(_:)`` when no source resolves `path`.
     public func directory(at path: String) throws -> any Directory {
         try throwIfNeeded()
 
@@ -96,7 +97,7 @@ extension MockFileSystem {
             return directory
         }
 
-        throw NSError(domain: "MockFileSystem", code: 1)
+        throw FileSystemError.directoryNotFound(path)
     }
 
     /// Returns whatever ``directory(at:)`` would resolve; otherwise creates the chain in the home tree

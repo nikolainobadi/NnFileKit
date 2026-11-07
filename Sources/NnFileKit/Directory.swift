@@ -48,7 +48,7 @@ public protocol Directory: Sendable {
     /// Returns the subdirectory with the given name.
     /// - Parameter name: The subdirectory name.
     /// - Returns: The matching subdirectory.
-    /// - Throws: An error if no subdirectory with that name exists.
+    /// - Throws: ``FileSystemError/invalidName(_:)`` if `name` is not a single path component, or ``FileSystemError/directoryNotFound(_:)`` if no subdirectory with that name exists.
     func subdirectory(named name: String) throws -> any Directory
 
     /// Creates a new subdirectory with the given name.
@@ -118,7 +118,7 @@ public extension Directory {
     /// Returns the subdirectory at the given relative path.
     /// - Parameter path: A relative path such as `"a/b"`. Repeated separators collapse; an empty path returns this directory.
     /// - Returns: The subdirectory at `path`.
-    /// - Throws: ``FileSystemError/invalidName(_:)`` if `path` begins with `/`, or an error if any component is missing.
+    /// - Throws: ``FileSystemError/invalidName(_:)`` if `path` begins with `/`, or ``FileSystemError/directoryNotFound(_:)`` if any component is missing.
     func subdirectory(atRelativePath path: String) throws -> any Directory {
         var current: any Directory = self
 

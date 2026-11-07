@@ -7,6 +7,7 @@
 
 import Testing
 import NnFileKit
+import Foundation
 @testable import NnFileTesting
 
 struct MockDirectoryTests {
@@ -95,12 +96,43 @@ extension MockDirectoryTests {
     }
 
     @Test
-    func `Unconfigured subdirectory throws an error`() {
-        let sut = makeSUT()
+    func `Unconfigured subdirectory throws directory not found with the full path`() {
+        let sut = makeSUT(path: "/parent")
 
-        #expect(throws: (any Error).self) {
+        let error = #expect(throws: FileSystemError.self) {
             try sut.subdirectory(named: "nonexistent")
         }
+
+        guard case .directoryNotFound(let path)? = error else {
+            Issue.record("Expected directoryNotFound, got \(String(describing: error))")
+            return
+        }
+
+        #expect(path == "/parent/nonexistent")
+    }
+
+    @Test
+    func `Subdirectory failure flag still throws the mock error instead of directory not found`() {
+        let sut = makeSubdirectoryFailingSUT()
+
+        let error = #expect(throws: NSError.self) {
+            try sut.subdirectory(named: "nonexistent")
+        }
+
+        #expect(error?.domain == "MockDirectory")
+        #expect(error?.code == 1)
+    }
+
+    @Test
+    func `Error flag still throws the mock error for subdirectory lookup`() {
+        let sut = makeSUT(throwError: true)
+
+        let error = #expect(throws: NSError.self) {
+            try sut.subdirectory(named: "nonexistent")
+        }
+
+        #expect(error?.domain == "MockDirectory")
+        #expect(error?.code == 4)
     }
 
     @Test
@@ -306,13 +338,20 @@ extension MockDirectoryTests {
     }
 
     @Test
-    func `Relative path lookup throws when a component is missing`() throws {
-        let sut = makeSUT()
+    func `Relative path lookup throws directory not found when a component is missing`() throws {
+        let sut = makeSUT(path: "/parent")
         _ = try sut.createSubdirectory(named: "a")
 
-        #expect(throws: (any Error).self) {
+        let error = #expect(throws: FileSystemError.self) {
             try sut.subdirectory(atRelativePath: "a/missing")
         }
+
+        guard case .directoryNotFound(let path)? = error else {
+            Issue.record("Expected directoryNotFound, got \(String(describing: error))")
+            return
+        }
+
+        #expect(path == "/parent/a/missing")
     }
 
     @Test
@@ -585,6 +624,18 @@ private extension MockDirectoryTests {
             subdirectories: subdirectories,
             containedFiles: containedFiles,
             throwError: throwError
+        )
+    }
+
+    func makeSubdirectoryFailingSUT() -> MockDirectory {
+        return MockDirectory(
+            path: "/test/mock",
+            subdirectories: [],
+            containedFiles: [],
+            throwError: false,
+            shouldThrowOnSubdirectory: true,
+            autoCreateSubdirectories: false,
+            ext: nil
         )
     }
 }

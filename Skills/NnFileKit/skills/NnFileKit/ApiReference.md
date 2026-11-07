@@ -124,7 +124,7 @@ Use the `atRelativePath:` helpers below to address nested subdirectories.
 | Method | Returns | Description |
 |--------|---------|-------------|
 | `containsSubdirectory(named:)` | `Bool` | `true` if `subdirectory(named:)` succeeds |
-| `subdirectory(atRelativePath:)` | `any Directory` | Walks `"a/b"` via `subdirectory(named:)`; throws if any component is missing |
+| `subdirectory(atRelativePath:)` | `any Directory` | Walks `"a/b"` via `subdirectory(named:)`; throws `FileSystemError.directoryNotFound` if any component is missing |
 | `createSubdirectory(atRelativePath:)` | `any Directory` | Walks `"a/b"` via `createSubfolderIfNeeded(named:)`, creating missing intermediates (`@discardableResult`) |
 
 Both relative-path helpers collapse repeated separators (`"a//b"` → `a/b`), return `self` for an empty path, and throw `FileSystemError.invalidName(path)` for a path beginning with `/`. Because they only call protocol methods, they work identically on every conformer, including the mocks.
