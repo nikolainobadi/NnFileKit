@@ -113,7 +113,7 @@ extension MockDirectory {
             return MockDirectory(path: path.appendingPathComponent(name))
         }
 
-        throw NSError(domain: "MockDirectory", code: 2)
+        throw FileSystemError.directoryNotFound(path.appendingPathComponent(name))
     }
 
     public func createSubdirectory(named name: String) throws -> any Directory {

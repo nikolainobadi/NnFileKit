@@ -53,7 +53,7 @@ public init(
   1. `directoryMap[path]`
   2. an existing folder in the **home tree** (when `path` is under `homeDirectory.path`, compared by whole components) or an internal in-memory **root tree** (`/`), walked with `subdirectory(atRelativePath:)`
   3. `directoryToLoad`
-  4. else throws `NSError(domain: "MockFileSystem", code: 1)`
+  4. else throws `FileSystemError.directoryNotFound(path)`, matching `DefaultFileSystem`
 - `createDirectory(at:)` records the path and returns whatever `directory(at:)` would resolve; otherwise builds the chain with `createSubdirectory(atRelativePath:)` in the home tree (paths under home) or the root tree (everything else). Created folders then resolve through `directory(at:)`. Note that a configured `directoryToLoad` short-circuits creation
 - `readFile(at:)` returns `fileContentsToRead[path]` if present → else resolves the containing directory and reads through it → else throws `FileSystemError.fileNotFound(path)`
 - `writeFile(at:contents:)` **always** records into `writtenFilePath` / `writtenFileContents`, and *additionally* mutates the containing `MockDirectory` when one resolves. It does not throw for an unconfigured directory
@@ -140,7 +140,7 @@ public struct CopiedFile: Equatable, Sendable {
 
 - Every throwing method checks `throwError` first and fails with `NSError(domain: "MockDirectory", code: 4)` when it's set
 - Every `named:` method then validates the name — `/` throws `FileSystemError.invalidName` (`containsFile(named:)` returns `false`), matching `DefaultDirectory`
-- `subdirectory(named:)`: throws `NSError(code: 1)` if `shouldThrowOnSubdirectory`; returns a matching subdirectory; else, if `autoCreateSubdirectories`, returns a fresh `MockDirectory` (not appended); else throws `NSError(code: 2)`
+- `subdirectory(named:)`: throws `NSError(code: 1)` if `shouldThrowOnSubdirectory`; returns a matching subdirectory; else, if `autoCreateSubdirectories`, returns a fresh `MockDirectory` (not appended); else throws `FileSystemError.directoryNotFound` with the subdirectory's full path, matching `DefaultDirectory`
 - `createSubdirectory(named:)` throws `NSError(code: 6)` if a subdirectory with that name already exists, else **appends** a new `MockDirectory` — mirroring `DefaultDirectory`'s throw-if-exists behavior
 - `createSubfolderIfNeeded(named:)` returns an existing match or **appends** a new `MockDirectory` to `subdirectories`
 - `createFile(named:contents:)` inserts into `containedFiles` + `fileContents`, returns the joined path (`@discardableResult`)

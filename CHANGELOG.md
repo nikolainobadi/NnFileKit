@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `MockFileSystem.directory(at:)` and `MockDirectory.subdirectory(named:)` now throw `FileSystemError.directoryNotFound` for a missing directory, matching `DefaultFileSystem` and `DefaultDirectory`. Tests that matched the previous undocumented `NSError` codes (`MockFileSystem` code 1, `MockDirectory` code 2) should match `FileSystemError.directoryNotFound` instead
+
 ## [0.9.1] - 2026-10-20
 
 ### Added

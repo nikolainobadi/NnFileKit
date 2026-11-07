@@ -7,6 +7,7 @@
 
 import Testing
 import NnFileKit
+import Foundation
 @testable import NnFileTesting
 
 struct MockFileSystemTests {
@@ -53,12 +54,31 @@ struct MockFileSystemTests {
     }
 
     @Test
-    func `Error is thrown when no map match and no fallback`() {
+    func `Missing directory throws directory not found with the requested path`() {
         let sut = makeSUT()
 
-        #expect(throws: (any Error).self) {
+        let error = #expect(throws: FileSystemError.self) {
             try sut.directory(at: "/unknown")
         }
+
+        guard case .directoryNotFound(let path)? = error else {
+            Issue.record("Expected directoryNotFound, got \(String(describing: error))")
+            return
+        }
+
+        #expect(path == "/unknown")
+    }
+
+    @Test
+    func `Error flag still throws the mock error instead of directory not found`() {
+        let sut = makeSUT(throwError: true)
+
+        let error = #expect(throws: NSError.self) {
+            try sut.directory(at: "/unknown")
+        }
+
+        #expect(error?.domain == "MockFileSystem")
+        #expect(error?.code == 2)
     }
 
     @Test
