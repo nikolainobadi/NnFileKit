@@ -43,6 +43,7 @@ public init(
 | Property | Type | Description |
 |----------|------|-------------|
 | `capturedPaths` | `[String]` | Every path passed to `directory(at:)` or `createDirectory(at:)`, in order (read-only) |
+| `lockedPaths` | `[String]` | Every path passed to `withExclusiveLock(at:_:)`, in order (read-only) |
 | `pathToMoveToTrash` | `String?` | The last path passed to `moveToTrash(at:)` (read-only) |
 | `writtenFilePath` | `String?` | The last path passed to `writeFile(at:contents:)` (read-only) |
 | `writtenFileContents` | `String?` | The last contents passed to `writeFile(at:contents:)` (read-only) |
@@ -58,6 +59,7 @@ public init(
 - `readFile(at:)` returns `fileContentsToRead[path]` if present → else resolves the containing directory and reads through it → else throws `FileSystemError.fileNotFound(path)`
 - `writeFile(at:contents:)` **always** records into `writtenFilePath` / `writtenFileContents`, and *additionally* mutates the containing `MockDirectory` when one resolves. It does not throw for an unconfigured directory
 - `moveToTrash(at:)` records the path in `pathToMoveToTrash`
+- `withExclusiveLock(at:_:)` records the path in `lockedPaths`, then runs `body` **without a real lock** and outside the mock's internal mutex, so `body` can call other mock methods. With `throwError` it throws before recording or running `body`
 - `throwError: true` short-circuits all of the above with `NSError(domain: "MockFileSystem", code: 2)`. `directory(at:)` / `createDirectory(at:)` throw *before* recording, so `capturedPaths` stays empty
 
 ### Usage Example
@@ -149,7 +151,7 @@ public struct CopiedFile: Equatable, Sendable {
 - `copyFile(named:to:overwrite:)` throws `NSError(code: 5)` if the name isn't in `containedFiles`; otherwise records a `CopiedFile` and returns `destination.path/name`. If `destination` is a `MockDirectory`, the file name and contents are written into it
 - Neither copy method enforces `overwrite` — an existing destination never makes the mock throw; assert on the recorded `overwrite` value instead
 - `fileContentsEqual(named:in:)` throws `FileSystemError.fileNotFound` if the name isn't in `containedFiles`; returns `false` if `other.containsFile(named:)` is `false`; else compares `fileContents[name] ?? ""` to `other.readFile(named:)`
-- `readFile(named:)` throws `NSError(code: 3)` if the name isn't in `containedFiles`, else returns `fileContents[name] ?? ""`
+- `readFile(named:)` throws `FileSystemError.fileNotFound(path + name)` if the name isn't in `containedFiles` (matching `DefaultDirectory`), else returns `fileContents[name] ?? ""`
 - `findFiles(withExtension:recursive:)` filters `containedFiles` by exact extension and recurses into `subdirectories`
 - The `atRelativePath:` helpers come from the protocol extension, so they walk `MockDirectory` trees with the rules above (e.g. `createSubdirectory(atRelativePath:)` appends each missing level)
 
@@ -312,5 +314,5 @@ try fs.writeFile(at: "/out/report.txt", contents: "done")
 - **`createSubdirectory` throws on an existing name; `createSubfolderIfNeeded` does not** — Same contract as `DefaultDirectory`. Both append when they create, so assert against whichever your production code calls.
 - **Copy mocks record, they don't enforce `overwrite`** — Assert the `overwrite` you passed via `copiedFiles` / `copiedToParents`; test the throw-on-existing behavior against `DefaultDirectory` in a temp folder.
 - **Reach for `throwError` before hand-building a failure** — One flag fails every throwing method, which is usually what an error-path test wants. Use `shouldThrowOnSubdirectory` when only the lookup should fail.
-- **Match assertions to the failure being exercised** — Missing directories throw `FileSystemError.directoryNotFound`: `MockFileSystem.directory(at:)` carries the requested path; `MockDirectory.subdirectory(named:)` carries the full missing subdirectory path. Relative-path lookup propagates the first missing component's full path. Leave failure flags off to exercise these cases; `throwError` and `shouldThrowOnSubdirectory` still inject `NSError` with domain `"MockFileSystem"` / `"MockDirectory"`. Other `FileSystemError` cases include `invalidName` for a `/` in a `named:` argument and `fileNotFound` from `MockFileSystem.readFile(at:)` and `MockDirectory.fileContentsEqual(named:in:)`.
-- **Inspect in-memory state directly** — `containedFiles`, `fileContents`, `capturedPaths`, `pathToMoveToTrash`, `writtenFilePath`, `writtenFileContents`, `movedToParents`, `copiedToParents`, `copiedFiles`, and `deleteCallCount` are your assertions; you rarely need to re-read through the protocol.
+- **Match assertions to the failure being exercised** — Missing directories throw `FileSystemError.directoryNotFound`: `MockFileSystem.directory(at:)` carries the requested path; `MockDirectory.subdirectory(named:)` carries the full missing subdirectory path. Relative-path lookup propagates the first missing component's full path. Leave failure flags off to exercise these cases; `throwError` and `shouldThrowOnSubdirectory` still inject `NSError` with domain `"MockFileSystem"` / `"MockDirectory"`. Other `FileSystemError` cases include `invalidName` for a `/` in a `named:` argument and `fileNotFound` from `MockFileSystem.readFile(at:)`, `MockDirectory.readFile(named:)` and `MockDirectory.fileContentsEqual(named:in:)`.
+- **Inspect in-memory state directly** — `containedFiles`, `fileContents`, `capturedPaths`, `lockedPaths`, `pathToMoveToTrash`, `writtenFilePath`, `writtenFileContents`, `movedToParents`, `copiedToParents`, `copiedFiles`, and `deleteCallCount` are your assertions; you rarely need to re-read through the protocol.

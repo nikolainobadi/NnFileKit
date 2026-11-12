@@ -18,6 +18,7 @@ public protocol FileSystem: Sendable {
     func desktopDirectory() throws -> any Directory
     func readFile(at path: String) throws -> String
     func writeFile(at path: String, contents: String) throws
+    func withExclusiveLock<T>(at path: String, _ body: () throws -> T) throws -> T
 }
 ```
 
@@ -30,9 +31,10 @@ public protocol FileSystem: Sendable {
 | `directory(at: String)` | `any Directory` | The directory at an absolute path. Throws `FileSystemError.directoryNotFound` if missing or not a directory |
 | `createDirectory(at: String)` | `any Directory` | Get-or-create counterpart of `directory(at:)`: returns the directory at an absolute path, creating it and any missing intermediates (`@discardableResult`) |
 | `desktopDirectory()` | `any Directory` | The current user's Desktop directory |
-| `readFile(at: String)` | `String` | Reads a file's contents as UTF-8 |
+| `readFile(at: String)` | `String` | Reads a file's contents as UTF-8. Throws `FileSystemError.fileNotFound` if no file exists at the path |
 | `writeFile(at: String, contents: String)` | `Void` | Writes a string to a file, creating or overwriting |
 | `moveToTrash(at: String)` | `Void` | Moves the item at an absolute path to the trash |
+| `withExclusiveLock(at: String, _ body:)` | `T` | Runs `body` while holding an exclusive advisory lock on the file at an absolute path, creating the file if needed. Returns `body`'s value; throws `FileSystemError.lockFailed` if the lock can't be taken, or whatever `body` throws |
 
 ### Protocol Extension Helper
 
@@ -181,6 +183,8 @@ public struct DefaultFileSystem: FileSystem, Sendable
 - `directory(at:)` checks existence **and** that the path is a directory before returning a `DefaultDirectory`
 - `createDirectory(at:)` uses `withIntermediateDirectories: true`, so it is idempotent for an existing directory
 - `readFile`/`writeFile` use UTF-8; `writeFile` is atomic (`atomically: true`)
+- `readFile(at:)` throws `FileSystemError.fileNotFound(path)` when nothing exists at the path; other read failures (a directory at the path, invalid UTF-8) surface as Foundation errors
+- `withExclusiveLock(at:_:)` opens the lock file with `O_CREAT` and takes `flock(LOCK_EX)`, blocking until the lock is free. The lock is **advisory** (only other `flock` users wait), **not reentrant** (a nested call on the same path in the same process deadlocks), and released when `body` returns or throws. The parent directory must already exist — call `createDirectory(at:)` first. The lock file is left in place; never delete it, or two processes can end up locking different files
 - `moveToTrash(at:)` calls `FileManager.default.trashItem(at:resultingItemURL:)` (macOS)
 
 ### Usage Example
@@ -190,6 +194,26 @@ let fs = DefaultFileSystem()
 let home = fs.homeDirectory
 try fs.writeFile(at: home.path.appendingPathComponent("note.txt"), contents: "hi")
 let text = try fs.readFile(at: home.path.appendingPathComponent("note.txt"))
+```
+
+### Read-Modify-Write Under a Lock
+
+```swift
+func appendLine(_ line: String, using fs: FileSystem) throws {
+    let folder = fs.homeDirectory.path.appendingPathComponent(".myapp")
+    let filePath = folder.appendingPathComponent("log.txt")
+
+    try fs.createDirectory(at: folder)
+    try fs.withExclusiveLock(at: folder.appendingPathComponent("log.lock")) {
+        let existing: String
+        do {
+            existing = try fs.readFile(at: filePath)
+        } catch FileSystemError.fileNotFound {
+            existing = ""
+        }
+        try fs.writeFile(at: filePath, contents: existing + line + "\n")
+    }
+}
 ```
 
 ---
@@ -238,14 +262,16 @@ public enum FileSystemError: Error {
     case directoryNotFound(String)
     case fileNotFound(String)
     case invalidName(String)
+    case lockFailed(path: String, reason: String)
 }
 ```
 
 | Case | Associated Value | Thrown When |
 |------|------------------|-------------|
 | `directoryNotFound` | `String` (path) | `directory(at:)` / `subdirectory(named:)` find no directory at the path |
-| `fileNotFound` | `String` (path) | `readFile(named:)` is called for a file that doesn't exist, or `fileContentsEqual(named:in:)` for a file missing from the receiver |
+| `fileNotFound` | `String` (path) | `readFile(at:)` / `readFile(named:)` is called for a file that doesn't exist, or `fileContentsEqual(named:in:)` for a file missing from the receiver |
 | `invalidName` | `String` (name or path) | A `named:` argument contains `/`, or an `atRelativePath:` argument begins with `/` |
+| `lockFailed` | `path: String`, `reason: String` (`strerror` text) | `withExclusiveLock(at:_:)` can't open or lock the lock file (e.g. its parent directory is missing) |
 
 ### Usage Example
 

@@ -262,7 +262,7 @@ extension MockDirectory {
         }
 
         guard let contents else {
-            throw NSError(domain: "MockDirectory", code: 3, userInfo: [NSLocalizedDescriptionKey: "File not found: \(name)"])
+            throw FileSystemError.fileNotFound(path.appendingPathComponent(name))
         }
 
         return contents

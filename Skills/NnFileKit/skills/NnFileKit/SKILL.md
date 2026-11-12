@@ -25,12 +25,12 @@ Lightweight Swift package for file system access with a protocol-based, fully mo
 ## Quick Reference
 
 ### Production
-- **FileSystem** — Top-level `Sendable` protocol: `homeDirectory`, `currentDirectory`, `desktopDirectory()`, `directory(at:)`, `createDirectory(at:)` (get-or-create with intermediates), `readFile(at:)`, `writeFile(at:contents:)`, `moveToTrash(at:)`
+- **FileSystem** — Top-level `Sendable` protocol: `homeDirectory`, `currentDirectory`, `desktopDirectory()`, `directory(at:)`, `createDirectory(at:)` (get-or-create with intermediates), `readFile(at:)`, `writeFile(at:contents:)`, `moveToTrash(at:)`, `withExclusiveLock(at:_:)` (exclusive `flock` around a closure)
 - **Directory** — Per-directory `Sendable` protocol: `path`/`name`/`extension`/`subdirectories`, plus `createFile`, `readFile(named:)`, `createSubdirectory`, `createSubfolderIfNeeded`, `findFiles(withExtension:recursive:)`, `copy(to:overwrite:)`, `copyFile(named:to:overwrite:)`, `fileContentsEqual(named:in:)`, `move(to:)`, `delete()`
 - **Nested paths** — `named:` takes **one path component only** (`/` throws `FileSystemError.invalidName`); use `subdirectory(atRelativePath:)` / `createSubdirectory(atRelativePath:)` for `"a/b"`
 - **DefaultFileSystem** — `FileManager`-backed production implementation (`struct`, `Sendable`); `init()` uses `FileManager.default`
 - **DefaultDirectory** — `FileManager`-backed directory (`struct`, `Sendable`); normalizes paths with a trailing slash; static `.temporary` / `.home`
-- **FileSystemError** — `enum` with `.directoryNotFound(String)` / `.fileNotFound(String)` / `.invalidName(String)`
+- **FileSystemError** — `enum` with `.directoryNotFound(String)` / `.fileNotFound(String)` / `.invalidName(String)` / `.lockFailed(path:reason:)`
 - `FileSystem` is the absolute-path entry point; `Directory` is the working handle you navigate from there
 
 ### Testing

@@ -59,12 +59,19 @@ extension DefaultDirectoryTests {
     }
 
     @Test
-    func `Reading nonexistent file throws an error`() throws {
+    func `Reading a missing file throws file not found with its path`() throws {
         let sut = try makeSUT()
 
-        #expect(throws: FileSystemError.self) {
+        let error = #expect(throws: FileSystemError.self) {
             try sut.readFile(named: "nonexistent.txt")
         }
+
+        guard case .fileNotFound(let path)? = error else {
+            Issue.record("Expected fileNotFound, got \(String(describing: error))")
+            return
+        }
+
+        #expect(path == (sut.path as NSString).appendingPathComponent("nonexistent.txt"))
     }
 
     @Test

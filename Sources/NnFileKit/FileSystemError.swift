@@ -15,4 +15,7 @@ public enum FileSystemError: Error {
 
     /// The associated name is not a single path component, or the associated relative path is absolute.
     case invalidName(String)
+
+    /// The lock file at the associated path could not be opened or locked.
+    case lockFailed(path: String, reason: String)
 }
