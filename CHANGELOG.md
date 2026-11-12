@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `FileSystem.withExclusiveLock(at:_:)` runs a closure while holding an exclusive `flock` on a lock file. `MockFileSystem` records the locked paths in `lockedPaths` without taking a real lock
+- `FileSystemError.lockFailed(path:reason:)`
+
+### Changed
+- `DefaultFileSystem.readFile(at:)` now throws `FileSystemError.fileNotFound(path)` for a missing file instead of a Foundation `CocoaError`, matching `MockFileSystem` and `DefaultDirectory`. The throw is now documented on `FileSystem.readFile(at:)`
+- **Breaking:** `FileSystem` has a new requirement, and `FileSystemError` has a new case. Custom conformers and exhaustive switches need updating
+
+### Fixed
+- `MockDirectory.readFile(named:)` now throws `FileSystemError.fileNotFound` for an unconfigured file, matching `DefaultDirectory`. Tests that matched the previous undocumented `NSError` (code 3) should match `FileSystemError.fileNotFound` instead
+
 ## [0.9.2] - 2026-11-07
 
 ### Fixed

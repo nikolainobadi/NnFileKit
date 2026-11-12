@@ -1,10 +1,3 @@
-//
-//  NnConfigManagerIntegrationTests.swift
-//  NnConfigKitTests
-//
-//  Created by Nikolai Nobadi on 9/12/26.
-//
-
 import Testing
 import NnFileKit
 import Foundation

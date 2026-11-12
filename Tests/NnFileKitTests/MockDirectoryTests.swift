@@ -1,10 +1,3 @@
-//
-//  MockDirectoryTests.swift
-//  NnFileKitTests
-//
-//  Created by Nikolai Nobadi on 2/12/26.
-//
-
 import Testing
 import NnFileKit
 import Foundation
@@ -65,12 +58,19 @@ extension MockDirectoryTests {
     }
 
     @Test
-    func `Reading unconfigured file throws an error`() {
-        let sut = makeSUT()
+    func `Reading a missing file throws file not found with its path`() {
+        let sut = makeSUT(path: "/test/mock")
 
-        #expect(throws: (any Error).self) {
+        let error = #expect(throws: FileSystemError.self) {
             try sut.readFile(named: "nonexistent.txt")
         }
+
+        guard case .fileNotFound(let path)? = error else {
+            Issue.record("Expected fileNotFound, got \(String(describing: error))")
+            return
+        }
+
+        #expect(path == "/test/mock/nonexistent.txt")
     }
 
     @Test

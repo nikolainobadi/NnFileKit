@@ -1,10 +1,3 @@
-//
-//  FileSystem.swift
-//  NnFileKit
-//
-//  Created by Nikolai Nobadi on 2/12/26.
-//
-
 import Foundation
 
 /// Provides top-level file system operations for navigating directories and managing files.
@@ -39,6 +32,7 @@ public protocol FileSystem: Sendable {
     /// Reads the contents of a file as a UTF-8 string.
     /// - Parameter path: The absolute path of the file to read.
     /// - Returns: The file's contents.
+    /// - Throws: ``FileSystemError/fileNotFound(_:)`` if no file exists at `path`.
     func readFile(at path: String) throws -> String
 
     /// Writes a string to a file, creating or overwriting as needed.
@@ -46,6 +40,15 @@ public protocol FileSystem: Sendable {
     ///   - path: The absolute path of the file to write.
     ///   - contents: The string to write.
     func writeFile(at path: String, contents: String) throws
+
+    /// Runs `body` while holding an exclusive advisory lock on the file at `path`, creating the file if needed.
+    /// The lock is not reentrant, and the lock file is left in place afterwards.
+    /// - Parameters:
+    ///   - path: The absolute path of the lock file. Its parent directory must already exist.
+    ///   - body: The work to perform while the lock is held.
+    /// - Returns: The value `body` returns.
+    /// - Throws: ``FileSystemError/lockFailed(path:reason:)`` if the lock can't be taken, or whatever `body` throws.
+    func withExclusiveLock<T>(at path: String, _ body: () throws -> T) throws -> T
 }
 
 // MARK: - Helpers

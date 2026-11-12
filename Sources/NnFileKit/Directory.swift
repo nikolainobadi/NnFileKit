@@ -1,10 +1,3 @@
-//
-//  Directory.swift
-//  NnFileKit
-//
-//  Created by Nikolai Nobadi on 2/12/26.
-//
-
 /// Represents a directory on disk and provides operations for managing its files and subdirectories.
 ///
 /// Every `named:` parameter is a single path component. Throwing methods reject a name containing `/`

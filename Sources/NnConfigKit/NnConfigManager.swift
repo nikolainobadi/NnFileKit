@@ -1,10 +1,3 @@
-//
-//  NnConfigManager.swift
-//
-//
-//  Created by Nikolai Nobadi on 6/19/24.
-//
-
 import NnFileKit
 import Foundation
 

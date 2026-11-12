@@ -1,10 +1,3 @@
-//
-//  MockDirectory.swift
-//  NnFileTesting
-//
-//  Created by Nikolai Nobadi on 2/12/26.
-//
-
 import NnFileKit
 import Foundation
 import Synchronization
@@ -262,7 +255,7 @@ extension MockDirectory {
         }
 
         guard let contents else {
-            throw NSError(domain: "MockDirectory", code: 3, userInfo: [NSLocalizedDescriptionKey: "File not found: \(name)"])
+            throw FileSystemError.fileNotFound(path.appendingPathComponent(name))
         }
 
         return contents

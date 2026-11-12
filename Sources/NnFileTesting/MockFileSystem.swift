@@ -1,10 +1,3 @@
-//
-//  MockFileSystem.swift
-//  NnFileTesting
-//
-//  Created by Nikolai Nobadi on 2/12/26.
-//
-
 import NnFileKit
 import Foundation
 import Synchronization
@@ -42,7 +35,7 @@ public struct MockFileSystem: FileSystem {
         throwError: Bool = false
     ) {
         self.homeDirectory = homeDirectory
-        self.storage = Storage(state: State(capturedPaths: [], pathToMoveToTrash: nil, writtenFilePath: nil, writtenFileContents: nil, currentDirectory: currentDirectory))
+        self.storage = Storage(state: State(capturedPaths: [], lockedPaths: [], pathToMoveToTrash: nil, writtenFilePath: nil, writtenFileContents: nil, currentDirectory: currentDirectory))
         self.directoryToLoad = directoryToLoad
         self.directoryMap = directoryMap
         self.desktop = desktop ?? MockDirectory(path: homeDirectory.path.appendingPathComponent("Desktop"))
@@ -69,6 +62,10 @@ public extension MockFileSystem {
 
     var capturedPaths: [String] {
         return storage.state.withLock { $0.capturedPaths }
+    }
+
+    var lockedPaths: [String] {
+        return storage.state.withLock { $0.lockedPaths }
     }
 
     var pathToMoveToTrash: String? {
@@ -164,6 +161,16 @@ extension MockFileSystem {
 
         storage.state.withLock { $0.pathToMoveToTrash = path }
     }
+
+    /// Records `path` in ``lockedPaths`` and runs `body` without taking a real lock.
+    /// `body` runs outside the mock's internal lock, so it can call other mock methods.
+    public func withExclusiveLock<T>(at path: String, _ body: () throws -> T) throws -> T {
+        try throwIfNeeded()
+
+        storage.state.withLock { $0.lockedPaths.append(path) }
+
+        return try body()
+    }
 }
 
 // MARK: - Private Methods
@@ -215,6 +222,7 @@ private extension MockFileSystem {
 
     struct State {
         var capturedPaths: [String]
+        var lockedPaths: [String]
         var pathToMoveToTrash: String?
         var writtenFilePath: String?
         var writtenFileContents: String?

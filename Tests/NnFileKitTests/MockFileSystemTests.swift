@@ -1,10 +1,3 @@
-//
-//  MockFileSystemTests.swift
-//  NnFileKitTests
-//
-//  Created by Nikolai Nobadi on 2/12/26.
-//
-
 import Testing
 import NnFileKit
 import Foundation
@@ -215,9 +208,16 @@ extension MockFileSystemTests {
     func `Reading unconfigured path throws file not found`() {
         let sut = makeSUT()
 
-        #expect(throws: FileSystemError.self) {
+        let error = #expect(throws: FileSystemError.self) {
             try sut.readFile(at: "/missing.txt")
         }
+
+        guard case .fileNotFound(let path)? = error else {
+            Issue.record("Expected fileNotFound, got \(String(describing: error))")
+            return
+        }
+
+        #expect(path == "/missing.txt")
     }
 
     @Test
@@ -275,10 +275,64 @@ extension MockFileSystemTests {
     }
 }
 
+// MARK: - File Locking
+extension MockFileSystemTests {
+    @Test
+    func `Exclusive lock records the path and returns the body's value`() throws {
+        let sut = makeSUT()
+
+        let value = try sut.withExclusiveLock(at: "/Users/Home/.app/app.lock") { 42 }
+
+        #expect(value == 42)
+        #expect(sut.lockedPaths == ["/Users/Home/.app/app.lock"])
+    }
+
+    @Test
+    func `Body can call other mock methods while the lock is held`() throws {
+        let sut = makeSUT()
+
+        try sut.withExclusiveLock(at: "/app.lock") {
+            try sut.writeFile(at: "/file.txt", contents: "data")
+        }
+
+        #expect(sut.writtenFileContents == "data")
+    }
+
+    @Test
+    func `Body error passes through the mock lock unchanged`() {
+        let sut = makeSUT()
+
+        #expect(throws: MockLockTestError.bodyFailed) {
+            try sut.withExclusiveLock(at: "/app.lock") {
+                throw MockLockTestError.bodyFailed
+            }
+        }
+    }
+
+    @Test
+    func `Error flag fails the lock before the body runs`() {
+        let sut = makeSUT(throwError: true)
+        var bodyRan = false
+
+        #expect(throws: NSError.self) {
+            try sut.withExclusiveLock(at: "/app.lock") {
+                bodyRan = true
+            }
+        }
+
+        #expect(!bodyRan)
+        #expect(sut.lockedPaths.isEmpty)
+    }
+
+    enum MockLockTestError: Error {
+        case bodyFailed
+    }
+}
+
 // MARK: - Error Flag Helpers
 extension MockFileSystemTests {
     enum ThrowingOperation: CaseIterable {
-        case directory, createDirectory, desktopDirectory, readFile, writeFile, moveToTrash
+        case directory, createDirectory, desktopDirectory, readFile, writeFile, moveToTrash, withExclusiveLock
     }
 
     func perform(_ operation: ThrowingOperation, on fileSystem: MockFileSystem) throws {
@@ -295,6 +349,8 @@ extension MockFileSystemTests {
             try fileSystem.writeFile(at: "/file.txt", contents: "data")
         case .moveToTrash:
             try fileSystem.moveToTrash(at: "/target")
+        case .withExclusiveLock:
+            try fileSystem.withExclusiveLock(at: "/app.lock") { }
         }
     }
 }
