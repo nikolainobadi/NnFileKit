@@ -1,10 +1,3 @@
-//
-//  DefaultFileSystem.swift
-//  NnFileKit
-//
-//  Created by Nikolai Nobadi on 2/12/26.
-//
-
 import Foundation
 
 /// A `FileManager`-backed ``FileSystem`` implementation that performs real file system operations.

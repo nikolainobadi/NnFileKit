@@ -1,10 +1,3 @@
-//
-//  NnConfigManagerTests.swift
-//
-//
-//  Created by Nikolai Nobadi on 6/19/24.
-//
-
 import Testing
 import NnFileKit
 import NnFileTesting

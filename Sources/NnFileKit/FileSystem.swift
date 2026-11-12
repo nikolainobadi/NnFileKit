@@ -1,10 +1,3 @@
-//
-//  FileSystem.swift
-//  NnFileKit
-//
-//  Created by Nikolai Nobadi on 2/12/26.
-//
-
 import Foundation
 
 /// Provides top-level file system operations for navigating directories and managing files.

@@ -1,10 +1,3 @@
-//
-//  FileSystemError+InvalidName.swift
-//  NnFileKitTests
-//
-//  Created by Nikolai Nobadi on 9/12/26.
-//
-
 import NnFileKit
 
 extension FileSystemError {

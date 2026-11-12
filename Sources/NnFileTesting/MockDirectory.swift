@@ -1,10 +1,3 @@
-//
-//  MockDirectory.swift
-//  NnFileTesting
-//
-//  Created by Nikolai Nobadi on 2/12/26.
-//
-
 import NnFileKit
 import Foundation
 import Synchronization

@@ -1,10 +1,3 @@
-//
-//  MockDirectoryTests.swift
-//  NnFileKitTests
-//
-//  Created by Nikolai Nobadi on 2/12/26.
-//
-
 import Testing
 import NnFileKit
 import Foundation
