@@ -309,6 +309,6 @@ let p = "/Users/me".appendingPathComponent("Desktop")  // "/Users/me/Desktop"
 - **Never pass `"a/b"` to a `named:` parameter** — It throws `invalidName`. Use `subdirectory(atRelativePath:)` / `createSubdirectory(atRelativePath:)` for nested folders, or `FileSystem.createDirectory(at:)` for an absolute path.
 - **Choose `overwrite` deliberately** — `copy` and `copyFile` require it at every call site. `true` deletes the existing destination before copying, so a failed copy can leave nothing behind.
 - **`createFile`, `copyFile`, `copy`, and `createDirectory` are `@discardableResult`** — Ignore the return value when you only need the side effect.
-- **Catch `FileSystemError` for the package's own cases** — `directoryNotFound`, `fileNotFound`, and `invalidName`; other failures surface as Foundation errors.
+- **Catch `FileSystemError` for the package's own cases** — `directoryNotFound`, `fileNotFound`, `invalidName`, and `lockFailed`. Lock acquisition failures include the lock path and a reason; errors thrown by the lock body propagate unchanged. Other file operation failures can surface as Foundation errors.
 - **`DefaultDirectory` paths carry a trailing slash** — Account for this if you compare `path` strings directly.
 - **`moveToTrash` is macOS-only** — It relies on `FileManager.trashItem`.

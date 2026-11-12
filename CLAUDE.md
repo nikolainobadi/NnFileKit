@@ -24,7 +24,7 @@ The checked-in `.build` directory was produced at a different absolute path (`~/
 
 Three library products from one package, layered strictly:
 
-- **NnFileKit** — the protocol layer. `FileSystem` handles top-level directory lookup/creation, whole-path read/write, and trash; `Directory` handles files, subdirectories and relative paths, search, copying, and content comparison. Both protocols inherit `Sendable`. `DefaultFileSystem` / `DefaultDirectory` are the `FileManager`-backed implementations; both are `Sendable` structs. `DefaultFileSystem()` uses `FileManager.default` and takes no initializer arguments.
+- **NnFileKit** — the protocol layer. `FileSystem` handles top-level directory lookup/creation, whole-path read/write, exclusive advisory locking, and trash; `Directory` handles files, subdirectories and relative paths, search, copying, and content comparison. Both protocols inherit `Sendable`. `DefaultFileSystem` / `DefaultDirectory` are the `FileManager`-backed implementations; both are `Sendable` structs. `DefaultFileSystem()` uses `FileManager.default` and takes no initializer arguments.
 - **NnConfigKit** — depends on NnFileKit. `NnConfigManager<Config: Codable>` reads/writes a single JSON file plus arbitrary nested files under a config folder. It talks *only* through the `FileSystem`/`Directory` protocols, never `FileManager` directly — that's what makes it testable, so keep new code in this module on the protocol side of the line.
 - **NnFileTesting** — depends on and re-exports NnFileKit, so `import NnFileTesting` also exposes NnFileKit's public API. Ships `MockFileSystem` / `MockDirectory` as a real product so downstream packages' test targets can import them. These are `Sendable` structs whose mutable state lives in shared storage guarded by `Synchronization.Mutex`; copying a mock value shares its state and recorded calls.
 
@@ -37,6 +37,9 @@ Key invariants to preserve when touching either implementation pair:
 - Both mocks take `throwError:` to fail every throwing operation at once; `MockDirectory` also has the narrower `shouldThrowOnSubdirectory:`.
 - `MockDirectory` records directory copies in `copiedToParents` and file copies in `copiedFiles`; successful copies also populate a `MockDirectory` destination.
 - `MockFileSystem.directory(at:)` resolves through `directoryMap`, then its home or root tree, then `directoryToLoad`, and finally throws `FileSystemError.directoryNotFound` (matching `DefaultFileSystem`); `MockDirectory.subdirectory(named:)` likewise throws `directoryNotFound` for an unknown name; lookup and creation record requested paths in `capturedPaths`. `readFile(at:)` checks `fileContentsToRead` first, then falls back to the containing directory, then throws `FileSystemError.fileNotFound`.
+- Missing-file reads throw `FileSystemError.fileNotFound` with the full path in `DefaultFileSystem.readFile(at:)` and both `Directory` implementations’ `readFile(named:)`; injected mock failures still use `NSError`.
+- `DefaultFileSystem.withExclusiveLock(at:_:)` creates the lock file and blocks on `flock(LOCK_EX)`, releasing the lock when the body returns or throws. The parent directory must already exist. The lock is advisory and not reentrant; leave the lock file in place. Open/lock failures throw `FileSystemError.lockFailed(path:reason:)`; body errors pass through.
+- `MockFileSystem.withExclusiveLock(at:_:)` records `lockedPaths` and runs the body without a real file lock, outside its internal mutex so other mock methods can be called. `throwError: true` fails before recording or running the body.
 - `MockFileSystem.writeFile(at:contents:)` always records into `writtenFilePath`/`writtenFileContents`, and additionally mutates the containing `MockDirectory` when one is configured.
 - `NnConfigManager` creates its config folder through `FileSystem.createDirectory(at:)` and traverses nested config paths with the `Directory` relative-path helpers. A leading `/` in a nested file path is stripped into relative components.
 - Config paths default to `DEFAULT_CONFIGLIST_FOLDER_PATH/<projectName>` (`~/.config/NnConfigList/…`), and `configFileName` gets `.json` appended via the private `String.json` helper.
@@ -62,9 +65,7 @@ Key invariants to preserve when touching either implementation pair:
 The marketplace entry in `nikolainobadi/nn-swift-skills` pins `ref` to a **release tag**, so:
 
 - **Skill edits ship on release, not on merge.** Merging a doc correction changes nothing for consumers until the next tag. This surprises people — it is the deliberate trade for docs that always match a shipped version.
-- The `skill-ref-bump` workflow fires on tag push and opens a PR against the marketplace to move `ref` to the new tag. If that automation is ever removed, the bump becomes a manual cross-repo step. **An unbumped `ref` serves the previous release's docs forever — nothing errors and nothing warns.**
-
-`skill-ref-bump` needs a `MARKETPLACE_TOKEN` repo secret: a fine-grained PAT with `contents:write` and `pull-requests:write` on `nikolainobadi/nn-swift-skills` and nothing else. It is **shared** with the other package repos publishing to that marketplace (`SwiftPickerKit`, `NnArgumentParser`), so rotation is fan-out — expiry breaks the bump in every repo holding it, and each needs the secret set again. A failed bump run complaining about the token means *rotate the shared token*, not *this repo's workflow is broken*. The token is stored locally under `~/Coding/Service-or-Auth-Keys/`; GitHub secrets are write-only, so it cannot be recovered from another repo.
+- Updating the marketplace `ref` to the new release tag is a manual cross-repo step; this repository has no `skill-ref-bump` workflow. **An unbumped `ref` serves the previous release's docs forever — nothing errors and nothing warns.**
 
 ## Release notes
 

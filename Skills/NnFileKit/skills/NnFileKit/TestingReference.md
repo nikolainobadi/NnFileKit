@@ -151,7 +151,7 @@ public struct CopiedFile: Equatable, Sendable {
 - `copyFile(named:to:overwrite:)` throws `NSError(code: 5)` if the name isn't in `containedFiles`; otherwise records a `CopiedFile` and returns `destination.path/name`. If `destination` is a `MockDirectory`, the file name and contents are written into it
 - Neither copy method enforces `overwrite` — an existing destination never makes the mock throw; assert on the recorded `overwrite` value instead
 - `fileContentsEqual(named:in:)` throws `FileSystemError.fileNotFound` if the name isn't in `containedFiles`; returns `false` if `other.containsFile(named:)` is `false`; else compares `fileContents[name] ?? ""` to `other.readFile(named:)`
-- `readFile(named:)` throws `FileSystemError.fileNotFound(path + name)` if the name isn't in `containedFiles` (matching `DefaultDirectory`), else returns `fileContents[name] ?? ""`
+- `readFile(named:)` throws `FileSystemError.fileNotFound(path.appendingPathComponent(name))` if the name isn't in `containedFiles` (matching `DefaultDirectory`), else returns `fileContents[name] ?? ""`
 - `findFiles(withExtension:recursive:)` filters `containedFiles` by exact extension and recurses into `subdirectories`
 - The `atRelativePath:` helpers come from the protocol extension, so they walk `MockDirectory` trees with the rules above (e.g. `createSubdirectory(atRelativePath:)` appends each missing level)
 

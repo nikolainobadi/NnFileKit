@@ -1,6 +1,6 @@
 ---
 name: NnFileKit
-description: NnFileKit Swift API reference for file system access. USE WHEN importing NnFileKit, reading or writing files from Swift, navigating directories, creating nested directories, copying files or directory trees, comparing file contents, using the FileSystem or Directory protocols, DefaultFileSystem, DefaultDirectory, createDirectory, moveToTrash, findFiles, file system error handling, or MockFileSystem / MockDirectory in tests.
+description: NnFileKit Swift API reference for file system access. USE WHEN importing NnFileKit, reading or writing files from Swift, navigating directories, creating nested directories, copying files or directory trees, comparing file contents, using the FileSystem or Directory protocols, DefaultFileSystem, DefaultDirectory, createDirectory, moveToTrash, withExclusiveLock, advisory file locking, findFiles, file system error handling, or MockFileSystem / MockDirectory in tests.
 user-invocable: true
 ---
 
@@ -8,7 +8,7 @@ user-invocable: true
 
 Lightweight Swift package for file system access with a protocol-based, fully mockable design.
 
-**Dependency:** `https://github.com/nikolainobadi/NnFileKit.git` (from `0.9.2`)
+**Dependency:** `https://github.com/nikolainobadi/NnFileKit.git` (from `0.10.0`)
 **Declared deployment minimums:** macOS 15 / iOS 18 | **Swift:** 6.0
 
 `DefaultFileSystem` still calls macOS-only `FileManager` APIs without platform guards; the iOS manifest declaration does not establish working iOS support.
@@ -19,7 +19,7 @@ Lightweight Swift package for file system access with a protocol-based, fully mo
 
 | File | Purpose | Load When |
 |------|---------|-----------|
-| `ApiReference.md` | `FileSystem`, `Directory`, `DefaultFileSystem`, `DefaultDirectory`, `FileSystemError` — full API with behavioral docs | Reading/writing files, navigating directories, choosing between `FileSystem` and `Directory` operations, handling errors |
+| `ApiReference.md` | `FileSystem`, `Directory`, `DefaultFileSystem`, `DefaultDirectory`, `FileSystemError` — full API with behavioral docs | Reading/writing files, navigating directories, choosing between `FileSystem` and `Directory` operations, handling errors, coordinating file access with advisory locks |
 | `TestingReference.md` | `MockFileSystem`, `MockDirectory` — in-memory test doubles with complete examples | Writing tests for code that uses `FileSystem` / `Directory` |
 
 ## Quick Reference
@@ -35,8 +35,9 @@ Lightweight Swift package for file system access with a protocol-based, fully mo
 
 ### Testing
 - **Import** — `import NnFileTesting` also exposes the public `NnFileKit` API in 0.9.1 and later; a separate `import NnFileKit` is unnecessary in test files.
-- **MockFileSystem** — `Sendable` struct conforming to `FileSystem`; in-memory, records `capturedPaths`, `pathToMoveToTrash`, `writtenFilePath` / `writtenFileContents`; resolves directories via `directoryMap` → home/root tree → `directoryToLoad`, and reads via `fileContentsToRead`; `createDirectory(at:)` builds the chain in memory
+- **MockFileSystem** — `Sendable` struct conforming to `FileSystem`; in-memory, records `capturedPaths`, `lockedPaths`, `pathToMoveToTrash`, `writtenFilePath` / `writtenFileContents`; resolves directories via `directoryMap` → home/root tree → `directoryToLoad`, and reads via `fileContentsToRead`; `createDirectory(at:)` builds the chain in memory
 - **MockDirectory** — `Sendable` struct conforming to `Directory`; in-memory `containedFiles` / `fileContents`, records `movedToParents` / `copiedToParents` / `copiedFiles` / `deleteCallCount`; `subdirectory(named:)` throws for unknown names unless `autoCreateSubdirectories: true`; `createSubdirectory(named:)` throws if the name already exists
+- **Mock locking** — `withExclusiveLock(at:_:)` records `lockedPaths` and runs the closure without taking a real lock; use it to assert lock requests, not mutual exclusion.
 - **Missing directories** — Unresolved `MockFileSystem.directory(at:)` and `MockDirectory.subdirectory(named:)` throw `FileSystemError.directoryNotFound` with the missing directory path; explicit failure flags still throw `NSError`.
 - Copies of either mock share mutable state and call records; initialize a fresh mock for independent state
 - Both mocks take `throwError: true` to fail every throwing operation at once
@@ -51,6 +52,7 @@ Lightweight Swift package for file system access with a protocol-based, fully mo
 - "How do I find all `.swift` files in a folder recursively?" -> Loads ApiReference.md
 - "How do I create `a/b/c` inside a directory?" -> Loads ApiReference.md
 - "How do I copy a file or folder, or check if two files match?" -> Loads ApiReference.md
+- "How do I coordinate a read-modify-write with a file lock?" -> Loads ApiReference.md
 - "How do I assert a copy happened in a test?" -> Loads TestingReference.md
 - "How do I mock the file system in tests?" -> Loads TestingReference.md
 - "How do I assert a file was written without touching disk?" -> Loads TestingReference.md

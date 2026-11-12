@@ -13,6 +13,7 @@ A lightweight Swift package providing protocol-based abstractions for file syste
 - **Protocol-driven design** — `FileSystem` and `Directory` protocols abstract all file operations
 - **Full directory management** — create nested paths, copy, move, delete, and traverse directories
 - **File operations** — read, write, create, copy, compare, delete, and search files by extension
+- **Exclusive file locking** — run synchronous work while holding an advisory lock with `FileSystem.withExclusiveLock(at:_:)`
 - **Recursive file search** — find files with optional extension filtering across nested directories
 - **Desktop and home directory access** — convenient accessors for common locations
 - **Trash support** — move items to trash instead of permanent deletion
@@ -34,7 +35,7 @@ A lightweight Swift package providing protocol-based abstractions for file syste
 Add the package to your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/nikolainobadi/NnFileKit.git", from: "0.9.2")
+.package(url: "https://github.com/nikolainobadi/NnFileKit.git", from: "0.10.0")
 ```
 
 Then include the libraries you need in your target:
@@ -82,6 +83,10 @@ try fileSystem.writeFile(at: "/path/to/output.txt", contents: "Hello, world!")
 // Move to trash
 try fileSystem.moveToTrash(at: "/path/to/unwanted-file.txt")
 ```
+
+`DefaultFileSystem.readFile(at:)` throws `FileSystemError.fileNotFound` with the requested path when the file does not exist.
+
+Use `try fileSystem.withExclusiveLock(at: lockPath) { /* synchronous work */ }` to run work under an exclusive advisory lock. The lock file's parent directory must already exist. `DefaultFileSystem` creates the lock file if needed and leaves it in place after releasing the lock, including when the closure throws. The lock is not reentrant. Failure to open or lock the file throws `FileSystemError.lockFailed(path:reason:)`; errors from the closure pass through unchanged. Custom `FileSystem` conformers must implement `withExclusiveLock(at:_:)`.
 
 ### Working with Directories
 
@@ -137,6 +142,10 @@ try manager.deletedNestedConfigFile(nestedFilePath: "settings/overrides.txt")
 `MockFileSystem` and `MockDirectory` are `Sendable` structs. Copies of a mock share lock-protected state, so calls recorded through one copy are visible through the others.
 
 Missing directory lookups through `MockFileSystem.directory(at:)` and `MockDirectory.subdirectory(named:)` throw `FileSystemError.directoryNotFound` with the missing directory's path. Explicit error-injection flags still throw their mock errors.
+
+Missing file reads through `MockFileSystem.readFile(at:)` and `MockDirectory.readFile(named:)` throw `FileSystemError.fileNotFound` with the missing file's full path.
+
+`MockFileSystem.withExclusiveLock(at:_:)` records the path in `lockedPaths` and runs the closure without taking a real file lock. The closure can call other mock methods. With `throwError: true`, the operation throws before recording the path or running the closure.
 
 ```swift
 import NnFileTesting

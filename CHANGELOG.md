@@ -7,13 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-11
+
 ### Added
 - `FileSystem.withExclusiveLock(at:_:)` runs a closure while holding an exclusive `flock` on a lock file. `MockFileSystem` records the locked paths in `lockedPaths` without taking a real lock
 - `FileSystemError.lockFailed(path:reason:)`
 
 ### Changed
 - `DefaultFileSystem.readFile(at:)` now throws `FileSystemError.fileNotFound(path)` for a missing file instead of a Foundation `CocoaError`, matching `MockFileSystem` and `DefaultDirectory`. The throw is now documented on `FileSystem.readFile(at:)`
-- **Breaking:** `FileSystem` has a new requirement, and `FileSystemError` has a new case. Custom conformers and exhaustive switches need updating
+- **Breaking:** Custom `FileSystem` conformers must implement `withExclusiveLock(at:_:)`, and exhaustive `FileSystemError` switches must handle `lockFailed(path:reason:)`
 
 ### Fixed
 - `MockDirectory.readFile(named:)` now throws `FileSystemError.fileNotFound` for an unconfigured file, matching `DefaultDirectory`. Tests that matched the previous undocumented `NSError` (code 3) should match `FileSystemError.fileNotFound` instead
@@ -78,7 +80,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Fix typo in README dependency name (`NnFileTesing` → `NnFileTesting`)
 
-[Unreleased]: https://github.com/nikolainobadi/NnFileKit/compare/0.9.2...HEAD
+[Unreleased]: https://github.com/nikolainobadi/NnFileKit/compare/0.10.0...HEAD
+[0.10.0]: https://github.com/nikolainobadi/NnFileKit/compare/0.9.2...0.10.0
 [0.9.2]: https://github.com/nikolainobadi/NnFileKit/compare/0.9.1...0.9.2
 [0.9.1]: https://github.com/nikolainobadi/NnFileKit/compare/0.9.0...0.9.1
 [0.9.0]: https://github.com/nikolainobadi/NnFileKit/compare/0.8.0...0.9.0
